@@ -47,14 +47,177 @@
 
 %%%%%%%%%%%%%%%%%%% 参考文献格式 %%%%%%%%%%%%%%%%%%%
 % https://www.overleaf.com/learn/latex/Bibtex_bibliography_styles
-\bibliographystyle{ieeetr}
+\bibliographystyle{plain}
 % \bibliographystyle{unsrt}
 
 
 
 %%%%%%%%%%%%%%%%%%% 自定义命令 %%%%%%%%%%%%%%%%%%%
-\DeclareMathOperator*{\argmax}{argmax}
-\DeclareMathOperator*{\argmin}{argmin}
+\def \S {\mathbf{S}}
+\def \A {\mathcal{A}}
+\def \X {\mathcal{X}}
+\def \O {\mathcal{O}}
+\def \Y {\mathcal{Y}}
+\def \Ab {\bar{\A}}
+\def \R {\mathbb{R}}
+\def \Kt {\widetilde{K}}
+\def \k {\mathbf{k}}
+\def \w {\mathbf{w}}
+\def \v {\mathbf{v}}
+\def \t {\mathbf{t}}
+\def \x {\mathbf{x}}
+\def \Se {\mathcal{S}}
+\def \E {\mathrm{E}}
+\def \Rh {\widehat{R}}
+\def \x {\mathbf{x}}
+\def \p {\mathbf{p}}
+\def \a {\mathbf{a}}
+\def \diag {\mbox{diag}}
+\def \b {\mathbf{b}}
+\def \e {\mathbf{e}}
+\def \ba {\boldsymbol{\alpha}}
+\def \c {\mathbf{c}}
+\def \tr {\mbox{tr}}
+\def \d {\mathbf{d}}
+\def \db {\bar\mathbf{d}}
+\def \1 {\mathbf{1}}
+
+\def \z {\mathbf{z}}
+\def \s {\mathbf{s}}
+\def \bh {\widehat{\b}}
+\def \y {\mathbf{y}}
+\def \u {\mathbf{u}}
+\def \uh {\widehat{\u}}
+\def \H {\mathcal{H}}
+\def \g {\mathbf{g}}
+\def \F {\mathcal{F}}
+\def \I {\mathbb{I}}
+\def \P {\mathcal{P}}
+\def \Q {\mathcal{Q}}
+\def \xh {\widehat{\x}}
+\def \wh {\widehat{\w}}
+\def \lambdah {\widehat{\lambda}}
+
+\def \ah {\widehat{\a}}
+\def \Rc {\mathcal R}
+\def \Sigmah {\widehat\Sigma}
+
+\def \Bh {\widehat B}
+\def \Ah {\widehat A}
+\def \Uh {\widehat U}
+\def \Ut {\widetilde U}
+\def \B {\mathcalB}
+\def \C {\mathbf C}
+\def \U {\mathbf U}
+\def \Kh {\widehat K}
+\def \fh {\widehat f}
+\def \yh {\widehat\y}
+\def \Xh {\widehat{X}}
+\def \Fh {\widehat{F}}
+
+\def \m {\mathbf{m}}
+\def \y {\mathbf{y}}
+\def \E {\mathrm{E}}
+\def \x {\mathbf{x}}
+\def \g {\nabla{g}}
+\def \D {\mathcal{D}}
+\def \z {\mathbf{z}}
+\def \u {\mathbf{u}}
+\def \H {\mathcal{H}}
+\def \Z {\mathcal{Z}}
+\def \Pc {\mathcal{P}}
+\def \w {\mathbf{w}}
+\def \s {\mathbf{s}}
+\def \r {\mathbf{r}}
+\def \R {\mathbb{R}}
+\def \S {\mathcal{S}}
+\def \regret {\mbox{regret}}
+\def \Uh {\widehat{U}}
+\def \Q {\mathcal{Q}}
+\def \W {\mathcal{W}}
+\def \N {\mathcal{N}}
+\def \A {\mathcal{A}}
+\def \q {\mathbf{q}}
+\def \v {\mathbf{v}}
+\def \M {\mathcal{M}}
+\def \c {\mathbf{c}}
+\def \ph {\widehat{p}}
+\def \d {\mathbf{d}}
+\def \p {\mathbf{p}}
+\def \q {\mathbf{q}}
+\def \db {\bar{\d}}
+\def \dbb {\bar{d}}
+
+\def \I {\mathbb{I}}
+\def \xt {\widetilde{\x}}
+\def \yt {\widetilde{\y}}
+\def \hrho {\hat{\rho}}
+
+\def \f {\mathbf{f}}
+\def \a {\mathbf{a}}
+\def \b {\mathbf{b}}
+\def \ft {\widetilde{\f}}
+\def \bt {\widetilde{\b}}
+\def \h {\mathbf{h}}
+\def \B {\mathcal{B}}
+\def \bts {\widetilde{b}}
+\def \fts {\widetilde{f}}
+\def \Gh {\widehat{G}}
+\def \G {\mathcal {G}}
+\def \bh {\widehat{b}}
+\def \wh {\widehat{\w}}
+\def \Dth {\widehat{\Delta}}
+\def \vb {\bar{\mathbf v}}
+\def \zt {\widetilde{\z}}
+\def \zh {\widehat{\z}}
+\def \zts {\widetilde{z}}
+\def \s {\mathbf{s}}
+\def \gh {\widehat{\g}}
+\def \vh {\widehat{\v}}
+\def \Sh {\widehat{S}}
+\def \rhoh {\widehat{\rho}}
+\def \hh {\widehat{\h}}
+\def \C {\mathcal{C}}
+\def \V {\mathcal{L}}
+\def \t {\mathbf{t}}
+\def \xh {\widehat{\x}}
+\def \Ut {\widetilde{U}}
+\def \wt {\m}
+\def \Th {\widehat{T}}
+\def \Ot {\tilde{\mathcal{O}}}
+\def \X {\mathcal{X}}
+\def \nb {\widehat{\nabla}}
+\def \K {\mathcal{K}}
+\def \P {\mathbb{P}}
+\def \T {\mathcal{T}}
+\def \F {\mathcal{F}}
+\def \ft{\widetilde{f}}
+\def \Rt {\mathcal{R}}
+\def \Rb {\bar{\Rt}}
+\def \wb {\bar{\w}}
+\def \zu {\underline{\z}}
+\def \vect {\text{vec}}
+\def \E {\mathbb{E}}
+\def \bftau {\boldsymbol{\tau}}
+\def\Tau{{\rm T}}
+\def\bw{\mathbf{w}}
+\def \start {\textsc{Start}}
+
+\definecolor{darkgreen}{RGB}{0, 180, 0}
+
+\newtheorem{thm}{Theorem}
+\newtheorem{prop}{Proposition}
+\newtheorem{cor}{Corollary}
+\newtheorem{ass}{Assumption}
+
+%\usepackage{jmlr2e}
+
+% Definitions of handy macros can go here
+
+\newcommand{\dataset}{{\cal D}}
+\newcommand{\fracpartial}[2]{\frac{\partial #1}{\partial #2}}
+\DeclareMathOperator*{\argmax}{arg\,max}
+\DeclareMathOperator*{\argmin}{arg\,min}
 \DeclareMathOperator{\rank}{rank}
 
 
