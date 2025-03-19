@@ -37,11 +37,11 @@
 \begin{equation*}
     q(\x_t|\x_0)=\N(\x_t;\sqrt{\bar{\alpha_t}}\x_0,(1-\bar{\alpha_t})\mathbf{I}),
 \end{equation*}
-其中$\alpha_t:=1-\beta_t$，$\bar{\alpha_t}:=\Pi_{s=0}^t\alpha_s$。于是，给定$\x_0$，我们可以首先采样一个高斯向量$\epsilon\in\N(0,\mathbf{I})$，随后通过如下变换得到$\x_t$的采样：
+其中$\alpha_t:=1-\beta_t$，$\bar{\alpha}_t:=\Pi_{s=0}^t\alpha_s$。于是，给定$\x_0$，我们可以首先采样一个高斯向量$\epsilon\in\N(0,\mathbf{I})$，随后通过如下变换得到$\x_t$的采样：
 \begin{equation*}
     \x_t=\sqrt{\bar{\alpha_t}}\x_0 + (1-\bar{\alpha_t})\epsilon.
 \end{equation*}
-不难看出，由于$\bar{\alpha_T}\approx 0$，所以$\x_T$近似于高斯分布，故有：$q(\x_T)=\int q(\x_T|\x_0)q(\x_0)d\x_0\approx \N(\x_T;\mathbf{0},\mathbf{I})$。
+不难看出，由于$\bar{\alpha}_T\approx 0$，所以$\x_T$近似于高斯分布，故有：$q(\x_T)=\int q(\x_T|\x_0)q(\x_0)d\x_0\approx \N(\x_T;\mathbf{0},\mathbf{I})$。
 
 直观地说，前向过程会逐渐向数据中注入噪声，直到所有结构完全消失。为了生成新的数据样本，DDPMs首先从先验分布中生成一个无结构的噪声向量，然后通过运行一个可学习的马尔可夫链在时间反方向上逐步去除噪声。具体来说，反向马尔可夫链由先验分布$p(\x_T)=\N(\x_T;\mathbf{0},\mathbf{I})$和一个\emph{可学习}的转移核$p_{\theta}(\x_{t-1}|\x_t)$参数化。先验分布的形式被设定为$p(\x_T)=\N(\x_T;\mathbf{0},\mathbf{I})$是因为前向过程产生的$\x_T$满足$q(\x_T)\approx \N(\x_T;\mathbf{0},\mathbf{I})$。可学习的转移核$p_{\theta}(\x_{t-1}|\x_t)$的形式为：
 \begin{equation*}
@@ -165,7 +165,7 @@
 p_{\theta}(\x_{t-1}|\x_t) = \N(\x_{t-1}| \mu_{\theta}(\x_t,t), \sigma_q^2(t)\mathbf{I}),
 \label{ddpm:p_reverse}
 \end{equation}
-其中均值向量$\mu_{\theta}(\x_t,t)$是由一个神经网络生成的，其具体形式我们将在后文中给出；至于方差，我们则是选择了与(\ref{ddpm:dist_of_reverse})中$q(\x_{t-1}|\x_t,\x_0)$相同的$\sigma_q^2(t)\mathbf{I})$。于是(\ref{ddpm:elbo})中的KL散度可以简化为
+其中均值向量$\mu_{\theta}(\x_t,t)$是由一个神经网络生成的，其具体形式我们将在后文中给出；至于方差，我们则是选择了与(\ref{ddpm:dist_of_reverse})中$q(\x_{t-1}|\x_t,\x_0)$相同的$\sigma_q^2(t)\mathbf{I}$。于是(\ref{ddpm:elbo})中的KL散度可以简化为
 \begin{align}
 \begin{split}
     & \text{KL}\left(q(\x_{t-1}|\x_t,\x_0) \| p_{\theta}(\x_{t-1}|\x_t)\right) \\
@@ -189,18 +189,18 @@ p_{\theta}(\x_{t-1}|\x_t) = \N(\x_{t-1}| \mu_{\theta}(\x_t,t), \sigma_q^2(t)\mat
 
 下面，我们在对$\mu_q(\x_t,\x_0)$的具体形式进行分析，并由此设计$\mu_{\theta}(\x_t,t)$的计算方式，最后完成DDPM目标函数的推导。我们由$q(\x_t|\x_0)$的表达式可知：
 \begin{equation*}
-    \x_t =\sqrt{\bar{\alpha}_t}\x_0 + \sqrt{1-\bar{\alpha}_t}\epsilon_0 \Rightarrow  \x_0 =\frac{\x_t - \sqrt{1-\bar{\alpha}_t}\epsilon_0}{\sqrt{\bar{\alpha}_t}}.
+    \x_t =\sqrt{\bar{\alpha}_t}\x_0 + \sqrt{1-\bar{\alpha}_t}\epsilon \Rightarrow  \x_0 =\frac{\x_t - \sqrt{1-\bar{\alpha}_t}\epsilon}{\sqrt{\bar{\alpha}_t}}.
 \end{equation*}
 随后我们将上式代入(\ref{ddpm:dist_of_reverse})中$\mu_q(\x_t,\x_0)$的表达式，可以得到：
 \begin{align}
 \begin{split}
     \mu_q(\x_t,\x_0) &= \frac{(1-\bar{\alpha}_{t-1})\sqrt{\alpha_t}\x_t +(1-\alpha_t)\sqrt{\bar{\alpha}_{t-1}}\x_0 }{1-\bar{\alpha}_t} \\
-    &= \frac{(1-\bar{\alpha}_{t-1})\sqrt{\alpha_t}\x_t +(1-\alpha_t)\sqrt{\bar{\alpha}_{t-1}}\frac{\x_t - \sqrt{1-\bar{\alpha}_t}\epsilon_0}{\sqrt{\bar{\alpha}_t}} }{1-\bar{\alpha}_t}\\
-    &= \frac{1}{\sqrt{\alpha_t}}\x_t - \frac{1-\alpha_t}{\sqrt{1-\bar{\alpha}_t}\sqrt{\alpha_t}}\epsilon_0,
+    &= \frac{(1-\bar{\alpha}_{t-1})\sqrt{\alpha_t}\x_t +(1-\alpha_t)\sqrt{\bar{\alpha}_{t-1}}\frac{\x_t - \sqrt{1-\bar{\alpha}_t}\epsilon}{\sqrt{\bar{\alpha}_t}} }{1-\bar{\alpha}_t}\\
+    &= \frac{1}{\sqrt{\alpha_t}}\x_t - \frac{1-\alpha_t}{\sqrt{1-\bar{\alpha}_t}\sqrt{\alpha_t}}\epsilon,
 \end{split}
 \label{ddpm:mu_q}
 \end{align}
-上式实际上将$\mu_q(\x_t,\x_0)$由关于$\x_0$的函数转化成关于高斯噪声$\epsilon_0$的函数。
+上式实际上将$\mu_q(\x_t,\x_0)$由关于$\x_0$的函数转化成关于高斯噪声$\epsilon$的函数。
 
 下面我们将设计一个更合适的$\mu_{\theta}(\x_t,t)$的形式，使之适配$\mu_q(\x_t,\x_0)$的表达式，具体地，我们进行如下设计：
 \begin{equation}
@@ -211,10 +211,10 @@ p_{\theta}(\x_{t-1}|\x_t) = \N(\x_{t-1}| \mu_{\theta}(\x_t,t), \sigma_q^2(t)\mat
 
 最后，我们将(\ref{ddpm:elbo_simp_1})、(\ref{ddpm:elbo_simp_2})、(\ref{ddpm:mu_q})和(\ref{ddpm:mu_theta})代入(\ref{ddpm:elbo})，并结合(\ref{ddpm:loss_vlb})的定义，可得：
 \begin{equation}
-\mathcal{L}_{\text{VLB}} = -\sum_{t=1}^T \E_q \left[\frac{1}{2\sigma_q^2(t)}\frac{(1-\alpha_t)^2}{(1-\bar{\alpha}_t)\alpha_t}\|\epsilon_{\theta}(\x_t,t)-\epsilon_0 \|^2 \right],
+\mathcal{L}_{\text{VLB}} = -\sum_{t=1}^T \E_q \left[\frac{1}{2\sigma_q^2(t)}\frac{(1-\alpha_t)^2}{(1-\bar{\alpha}_t)\alpha_t}\|\epsilon_{\theta}(\x_t,t)-\epsilon \|^2 \right],
 \label{ddpm:loss_vlb_denoise}
 \end{equation}
-于是我们最终得到了DDPM的目标函数，它实际上是一个监督学习型的目标函数，即训练扩散模型的输出，即$\epsilon(\x_t,t)$，来预测前向过程中每一步加入的噪声$\epsilon_0$。注意，实际上加入的噪声是$\epsilon_0$乘上某系数，但我们设计扩散模型反向过程中也让$\epsilon(\x_t,t)$乘上此系数，所以在(\ref{ddpm:loss_vlb_denoise})中该系数可以被提取出来，形成系数$\frac{1}{2\sigma_q^2(t)}\frac{(1-\alpha_t)^2}{(1-\bar{\alpha}_t)\alpha_t}$。
+于是我们最终得到了DDPM的目标函数，它实际上是一个监督学习型的目标函数，即训练扩散模型的输出，即$\epsilon(\x_t,t)$，来预测前向过程中每一步加入的噪声$\epsilon$。注意，实际上加入的噪声是$\epsilon$乘上某系数，但我们设计扩散模型反向过程中也让$\epsilon(\x_t,t)$乘上此系数，所以在(\ref{ddpm:loss_vlb_denoise})中该系数可以被提取出来，形成系数$\frac{1}{2\sigma_q^2(t)}\frac{(1-\alpha_t)^2}{(1-\bar{\alpha}_t)\alpha_t}$。
 
 最后我们介绍扩散模型的生成过程。在训练结束后，我们可以获得神经网络$\epsilon_{\theta}(\x_t,t)$。生成新样本时，我们先采样一个高斯白噪声$\x_T\sim\N(\mathbf{0},\mathbf{I})$，随后便可以利用(\ref{ddpm:p_reverse})中建立的$\x_{t-1}$与$\x_t$的关系以及(\ref{ddpm:mu_theta})中$\mu_\theta$的定义，迭代式地生成$\x_{T-1},\cdots,\x_0$，具体的计算方式为：
 \begin{equation*}
@@ -228,6 +228,12 @@ p_{\theta}(\x_{t-1}|\x_t) = \N(\x_{t-1}| \mu_{\theta}(\x_t,t), \sigma_q^2(t)\mat
     \s_\theta(\x) := \nabla_{\x}\log p(\x).
 \end{equation*}
 注意不同于统计领域常见的Fisher分数$\nabla_\theta \log p_{\theta}(\x)$，Stein分数是关于\emph{样本}的梯度，而不是关于模型参数$\theta$的梯度。该分数函数实际上是数据分布的梯度场，它指向使数据出现概率增加最快的方向。
+
+当我们获得分数函数$\nabla_{\x}\log p(\x)$后，便可以通过朗之万动力学（Langevin dynamics）来从概率分布$p(\x)$中采样。具体地，给定一个固定的步长$\alpha>0$以及一个初始值$\tilde{\x}_0\sim\pi(\x)$（$\pi(\x)$是某个先验分布），朗之万方法通过下面的方式进行迭代更新采样：
+\begin{equation*}
+    \tilde{\x}_t = \tilde{\x}_{t-1} + \frac{\alpha}{2} \nabla_{\x}\log p(\tilde{\x}_{t-1}) + \sqrt{\alpha}\epsilon_t,\quad \epsilon_t\sim\N(\mathbf{0},\mathbf{I}).
+\end{equation*}
+当某些正则性条件被满足时，若$\alpha\rightarrow 0$且$T\rightarrow \infty$，\cite{max2011bayesian}说明$\tilde{\x}_T$的分布与$p(\x)$相同。当$\alpha> 0$且$T< \infty$时上面的公式存在一些误差，需要用Metropolis-Hastings更新来修正，但在实践中通常可以忽略这种修正\cite{du2019implicit,nijkamp2019anatomy}。在本文中，当$\alpha$很小且$T$很大时，我们假设这种误差是可以忽略的。综上所述，我们知道只要能学到分数函数，便可以通过朗之万方法从原始数据分布中采样，这就是基于分数的生成模型的核心思想。
 
 前人提出了多种方法来学习分数函数。一种方法称为显式分数函数匹配（Explicit Score Matching，ESM）\cite{vincent2011connection}。假设我们有一个包含$M$个样本的数据集$\X=\{\x^{(1)},\cdots,\x^{(M)}\}$，那么我们可以通过核密度估计来近似真实数据分布$p(\x)$：
 \begin{equation*}
@@ -245,35 +251,46 @@ p_{\theta}(\x_{t-1}|\x_t) = \N(\x_{t-1}| \mu_{\theta}(\x_t,t), \sigma_q^2(t)\mat
 \end{equation*}
 其中$\nabla_{\x} \s_\theta (\x)$表示$\s_\theta (\x)$的Jacobian。尽管该方法避免了直接近似真实数据分布$p(\x)$，但\cite{song2019generative}指出该目标函数的迹函数难以计算，导致该方法缺乏可扩展性。
 
-现在最流行的分数函数学习方法是基于去噪分数函数匹配（Denoising Score Matching，DSM）\cite{vincent2011connection}，其目标函数如下：
+现在最流行的分数函数学习方法是基于去噪分数函数匹配（Denoising Score Matching，DSM）\cite{vincent2011connection}。给定一个样本$\x_0$，该方法使用一个预定义的噪声分布$q_\sigma(\x^\prime|\x)$对其进行扰动得到带噪声数据，其分布为$q_\sigma(\x^\prime):=\int q_\sigma(\x^\prime|\x)p(\x)d\x$。DSM的核心思想是使用分数函数匹配来估计\emph{该带噪声数据分布$q_\sigma(\x^\prime)$的分数函数}，优化目标如下：
 \begin{equation}
-\mathcal{L}_{\text{DSM}}(\theta):=\E_{q(\x,\x^\prime)} \left[\frac{1}{2}\| \s_{\theta}(\x) - \nabla_{\x}\log q(\x|\x^\prime) \|^2 \right]，
+\E_{q_\sigma(\x^\prime|\x)p(\x)} \left[\frac{1}{2}\| \s_{\theta}(\x^\prime) - \nabla_{\x^\prime}\log q(\x^\prime|\x) \|^2 \right].
 \label{sgm:dsm}
 \end{equation}
-其中$\x$是某给定样本，$\x^\prime$是在该样本上加入噪声生成的，可以看出DSM实际上基于噪声样本$\x^\prime$找出无噪声样本出现概率增加最快的方向，这就解释了该方法为什么包含“去噪”一词。由于该目标函数不涉及对真实分布的估计以及难以计算的迹函数，所以DSM得到了广泛使用。
+\cite{vincent2011connection}的结论显示最小化以上目标函数得到的最优分数函数（记为$\s_{\theta^*}(\x)$）\emph{几乎必然满足}$\s_{\theta^*}(\x)=\nabla_\x\log q_\sigma(\x)$。值得注意的是，只有当噪声足够小时，才有$q_\sigma(\x)\approx p(\x)$成立。
 
-为了更好的优化上面的目标函数，一般可以设置$q(\x,\x^\prime)=\N(\x|\x^\prime,\sigma^2)$，即$\x=\x^\prime+\sigma\z,\z\sim\N(\mathbf{0},\mathbf{I})$。于是我们有：
+为了高效地计算(\ref{sgm:dsm})，一般可以设置$q(\x^\prime|\x)=\N(\x^\prime|\x,\sigma^2)$，即让$\x^\prime=\x+\sigma\epsilon,\epsilon\sim\N(\mathbf{0},\mathbf{I})$。此时我们有：
 \begin{align*}
-    \nabla_{\x}\log q(\x|\x^\prime) &= \nabla_{\x}\log \frac{1}{(\sqrt{2\pi\sigma^2})^d}\exp\left\{-\frac{\|\x-\x^\prime \|^2}{2\sigma^2}\right\} \\
-    &= \nabla_{\x} \left\{ -\frac{\|\x-\x^\prime \|^2}{2\sigma^2} -\frac{d}{2}\log (2\pi\sigma^2) \right\} \\
-    &= -\frac{\x-\x^\prime}{\sigma^2}=-\frac{\z}{\sigma}.
+    \nabla_{\x^\prime}\log q(\x^\prime|\x) &= \nabla_{\x^\prime}\log \frac{1}{(\sqrt{2\pi\sigma^2})^d}\exp\left\{-\frac{\|\x^\prime-\x \|^2}{2\sigma^2}\right\} \\
+    &= \nabla_{\x^\prime} \left\{ -\frac{\|\x^\prime-\x \|^2}{2\sigma^2} -\frac{d}{2}\log (2\pi\sigma^2) \right\} = -\frac{\x^\prime-\x}{\sigma^2}=-\frac{\epsilon}{\sigma}.
 \end{align*}
 
 于是(\ref{sgm:dsm})中的目标函数变成：
 \begin{equation}
-\mathcal{L}_{\text{DSM}}(\theta):=\E_{q(\x,\x^\prime)} \left[\frac{1}{2}\| \s_{\theta}(\x) - \nabla_{\x}\log q(\x|\x^\prime) \|^2 \right] = \E_{q(\x^\prime)} \left[ \s_\theta(\x^\prime +\sigma\z)+\frac{\z}{\sigma} \right].
+\E_{q_\sigma(\x^\prime|\x)p(\x)} \left[\frac{1}{2}\| \s_{\theta}(\x^\prime) - \nabla_{\x^\prime}\log q(\x^\prime|\x)  \|^2 \right] = \E_{q(\x^\prime)} \left[ \frac{1}{2}\left\| \s_\theta(\x +\sigma\epsilon)+\frac{\epsilon}{\sigma} \right\|^2\right].
 \label{sgm:dsm_obj}
 \end{equation}
-可以看出，上面的目标函数的作用，就是训练分数函数$\s_\theta$，让其预测输入样本中的噪声（乘上系数$1/\sigma^2$）。
+可以看出，上面的目标函数的作用，就是训练分数函数$\s_\theta$，让其预测输入样本中的噪声（乘上系数$-1/\sigma^2$）。从本质上看，\emph{去除样本中的噪声即等价于让样本朝分布中高概率区域移动}，这正是分数函数的定义。
 
-尽管目标函数(\ref{sgm:dsm_obj})简洁且方便计算优化，但\cite{song2019generative}指出由于真实世界数据常呈现低维流形分布，所以分数函数在一些区域可能无定义；此外低密度区域的数据少，导致该区域的分数函数难以准确估计。为了应对这两个挑战，\cite{song2019generative}提出NCSN（Noise Conditional Score Network）方法采用不同强度的随机高斯噪声对数据进行扰动。具体地，。。。
+尽管目标函数(\ref{sgm:dsm_obj})简洁且方便计算优化，但\cite{song2019generative}指出由于真实世界数据常呈现低维流形分布，所以分数函数在一些区域可能无定义；此外低密度区域的数据少，导致该区域的分数函数难以准确估计。为了应对这两个挑战，\cite{song2019generative}提出NCSN（Noise Conditional Score Network）方法采用不同尺度的随机高斯噪声对数据进行扰动。具体地，令$\sigma_1 > \sigma_2 > \cdots > \sigma_i > \cdots > \sigma_L > 0$是从大到小$L$个不同的尺度，并利用$q(\x^\prime|\x_0)=\N(\x^\prime|\x_0,\sigma_i^2\mathbf{I})$，即$\x^\prime=\x_0+\sigma_i\epsilon$来生成一系列具有不同噪声尺度的带噪样本。此时的目标变成：
+\begin{align}
+\begin{split}
+    \mathcal{L}_{\text{NCSN}}=\E_{i\in\{1,\cdots,L\},q(\x^\prime|\x_0)p(\x_0)} \left[\frac{1}{2} \lambda(\sigma_i)\left\| \s_\theta(\x^\prime,\sigma_i) + \frac{\epsilon}{\sigma_i} \right\|^2 \right],
+\end{split}
+\label{sgm:ncsn}
+\end{align}
+其中$\lambda(\sigma_i)$是一个取决于$\sigma_i$的权重系数，其目的是为了让不同损失项的量级不因$\sigma_i$的变化而变化，\cite{song2019generative}提出一种选择是让$\lambda(\sigma)=\sigma^2$。现在的分数函数为$\s_\theta(\x^\prime,\sigma_i)$，即我们输入带噪声的样本以及噪声尺度，输出该样本处的分数。从直观上看，通过在数据上施加不同尺度的高斯噪声，一方面使得扰动后的数据不再局限于低维流形，保证了分数函数估计在全空间上有定义，另一方面大尺度高斯噪声能有效填充数据分布中的低密度区域，为分数函数提供更多训练信号以提升估计精度。
 
-我们可以看出，一开始向原始数据加入小尺度的噪声，这能能保证图像平滑变化，降低分数函数的学习难度，并在生成时提升图像保真度；后来逐渐加入大尺度噪声，这样能有效填充原始数据分布中的低密度区域，为分数函数的学习提供更多训练信号以提升估计精度。
+在$\s_\theta(\x,\sigma)$完成后，NCSN提出使用退火朗之万动力学（Annealed Langevin dynamics）来采样生成样本，其数学描述如下：
+\begin{align}
+\begin{split}
+\alpha_i &\leftarrow \frac{\sigma_i^2}{\sigma_L^2}\alpha, \\
+\x^\prime_t & \leftarrow\x^\prime_{t-1} + \frac{\alpha_i}{2}\s_{\theta}(\x^\prime_{t-1},\sigma_i) + \sqrt{\alpha_i}\epsilon,\ \epsilon\sim\N(\mathbf{0},\mathbf{I}),
+\end{split}
+\label{sgm:annealed_langevin}
+\end{align}
+退火朗之万动力学从$1$到$L$依次选择每个噪声尺度，利用(\ref{sgm:annealed_langevin})中第一行设置与噪声尺度的平方成正比的步长$\alpha_i$；对每个噪声尺度，利用(\ref{sgm:annealed_langevin})中第二行进行若干轮迭代式采样。与使用单一噪声的朗之万动力学不同，退火朗之万动力学在采样中逐渐降低噪声尺度。\cite{song2019generative}指出通过这种方式，可以迫使采样过程跨过低维流形之间的低密度区域，产生更符合真实数据分布的样本。
 
-
-
-现在，我们学到了分数函数，那么此时便可以利用该函数找到数据分布的高概率区域并从中采样得到出现概率大（即较为真实）的样本。
-
+当我们比较DDPM的目标函数(\ref{ddpm:loss_vlb_denoise})和SGM的目标函数(\ref{sgm:ncsn})时，我们可以发现实际上当设置DDPM中的$\epsilon_{\theta}(\x,t)$和SGM中的$\s_\theta(\x,\sigma)$在功能上是一致的，在输出上也仅相差一个常系数。我们将在下一节从另一个视角揭示这两大类方法的内在联系。
 
 
 \subsection{随机微分方程 (Score SDE)}
