@@ -30,10 +30,11 @@
 \end{equation*}
 
 在DDPM中，转移核$q(\x_t|\x_{t-1})$通常被设为高斯扰动形式，即：
-\begin{equation*}
+\begin{equation}
     q(\x_t|\x_{t-1}) =\N(\x_t;\sqrt{1-\beta_t}\x_{t-1},\beta_t\mathbf{I}),
-\end{equation*}
-其中$\beta_t\in(0,1)$是用于噪声调度的超参数，并在模型训练前被设置好,$\mathbf{I}$是对角矩阵。根据Sohl-Dickstein等人\cite{sohldickstein2015diffusion}的结论，使用上面的高斯扰动转移核的好处在于我们可以方便地获得某时间步$t\in\{0,1,\cdots,T\}$的数据$\x_t$的边缘分布。具体地，我们有：
+\label{ddpm:forward_process}
+\end{equation}
+其中$\beta_t\in(0,1)$是用于噪声调度的超参数，并在模型训练前被设置好,$\mathbf{I}$是单位对角矩阵。根据Sohl-Dickstein等人\cite{sohldickstein2015diffusion}的结论，使用上面的高斯扰动转移核的好处在于我们可以方便地获得某时间步$t\in\{0,1,\cdots,T\}$的数据$\x_t$的边缘分布。具体地，我们有：
 \begin{equation*}
     q(\x_t|\x_0)=\N(\x_t;\sqrt{\bar{\alpha_t}}\x_0,(1-\bar{\alpha_t})\mathbf{I}),
 \end{equation*}
@@ -271,7 +272,12 @@ p_{\theta}(\x_{t-1}|\x_t) = \N(\x_{t-1}| \mu_{\theta}(\x_t,t), \sigma_q^2(t)\mat
 \end{equation}
 可以看出，上面的目标函数的作用，就是训练分数函数$\s_\theta$，让其预测输入样本中的噪声（乘上系数$-1/\sigma^2$）。从本质上看，\emph{去除样本中的噪声即等价于让样本朝分布中高概率区域移动}，这正是分数函数的定义。
 
-尽管目标函数(\ref{sgm:dsm_obj})简洁且方便计算优化，但\cite{song2019generative}指出由于真实世界数据常呈现低维流形分布，所以分数函数在一些区域可能无定义；此外低密度区域的数据少，导致该区域的分数函数难以准确估计。为了应对这两个挑战，\cite{song2019generative}提出NCSN（Noise Conditional Score Network）方法采用不同尺度的随机高斯噪声对数据进行扰动。具体地，令$\sigma_1 > \sigma_2 > \cdots > \sigma_i > \cdots > \sigma_L > 0$是从大到小$L$个不同的尺度，并利用$q(\x^\prime|\x_0)=\N(\x^\prime|\x_0,\sigma_i^2\mathbf{I})$，即$\x^\prime=\x_0+\sigma_i\epsilon$来生成一系列具有不同噪声尺度的带噪样本。此时的目标变成：
+尽管目标函数(\ref{sgm:dsm_obj})简洁且方便计算优化，但\cite{song2019generative}指出由于真实世界数据常呈现低维流形分布，所以分数函数在一些区域可能无定义；此外低密度区域的数据少，导致该区域的分数函数难以准确估计。为了应对这两个挑战，\cite{song2019generative}提出NCSN（Noise Conditional Score Network）方法采用不同尺度的随机高斯噪声对数据进行扰动。具体地，令$\sigma_1 > \sigma_2 > \cdots > \sigma_i > \cdots > \sigma_L > 0$是从大到小$L$个不同的尺度，并利用
+\begin{equation}
+    q(\x^\prime|\x_0)=\N(\x^\prime|\x_0,\sigma_i^2\mathbf{I}),
+\label{sgm:ncsn_forward}
+\end{equation}
+即$\x^\prime=\x_0+\sigma_i\epsilon$来生成一系列具有不同噪声尺度的带噪样本。此时的目标变成：
 \begin{align}
 \begin{split}
     \mathcal{L}_{\text{NCSN}}=\E_{i\in\{1,\cdots,L\},q(\x^\prime|\x_0)p(\x_0)} \left[\frac{1}{2} \lambda(\sigma_i)\left\| \s_\theta(\x^\prime,\sigma_i) + \frac{\epsilon}{\sigma_i} \right\|^2 \right],
@@ -294,6 +300,110 @@ p_{\theta}(\x_{t-1}|\x_t) = \N(\x_{t-1}| \mu_{\theta}(\x_t,t), \sigma_q^2(t)\mat
 
 
 \subsection{随机微分方程 (Score SDE)}
+
+之前我们介绍的DDPM和SGM都是利用离散时间上的迭代关系式来刻画相邻时刻两个变量间的关系，实际上通过一些连续化技术和公式变化，它们都可以与连续时间上的微分方程（Differential Equation）建立联系。我们在本节首先介绍微分方程（包含常微分方程和随机微分方程）的定义，随后给出DDPM和SGM的随机微分方程形式表示。
+
+我们首先介绍常微分方程（Ordinary Differential Equation，ODE）和随机微分方程（Stochastic Differential Equation，SDE）的概念。我们先介绍ODE，一阶（first-order）ODE的数学表示如下：
+\begin{equation*}
+    \frac{d\x(t)}{dt}=\f(t,\x),
+\end{equation*}
+其中$\f(t,\x)$是关于$t$和$\x$的函数。在后文中，我们主要使用ODE的微分形式（differential form）：
+\begin{equation*}
+    d\x=\f(t,\x)dt.
+\end{equation*}
+
+SDE相比ODE多了一项刻画\emph{随机扰动}的项，具体地，其表达式如下：
+\begin{equation*}
+    \frac{d\x(t)}{dt}=\f(t,\x) + \mathbf{g}(t,\x)\xi(t),\ \text{where}\ \xi(t)\sim\N(\mathbf{0},\mathbf{I}),
+\end{equation*}
+其中$\xi(t)$刻画了时间$t$的随机性。SDE的微分形式可以写成：
+\begin{equation*}
+    d\x=\f(t,\x)dt + \mathbf{g}(t,\x)d\w,
+\end{equation*}
+上面的$d\w=\xi(t)dt$是布朗运动（Brownian motion）的微分形式。
+
+下面我们介绍SDE视角下DDPM和SGM的前向与反向过程。我们首先分别定义通用的前向和反向过程的微分形式SDE，随后介绍DDPM和SGM具体对应的SDE。具体地，刻画前向过程的微分形式SDE如下：
+\begin{equation}
+    d\x=\underbrace{\f(t,\x)}_{\text{漂移项}}dt + \underbrace{g(t)}_{\text{扩散项}}d\w,
+\label{sde:forward}
+\end{equation}
+其中$\xi(t)$对于所有时刻$t$均为独立同分布的高斯随机变量，$d\w=\xi(t)dt$是布朗运动的微分形式，直观上看，$\xi(t)$可以看成关于时间$t$的变化率，通过对$\xi(t)dt$进行积分即可得到$d\w$。函数$\f(t,\x)$和$g(t)$具有明确的物理含义，前者称为\emph{漂移项}，它定义了在封闭系统中，分子在没有随机效应时的确定性运动方式；后者称为\emph{扩散项}，它描述了分子如何通过布朗运动随机地从一个位置跃迁到另一个位置，该函数决定了随机运动的强度参数。
+
+扩散模型的反向过程对应于在时间上反向演化，根据Anderson\cite{anderson1982reverse}的结论，(\ref{sde:forward})的反向时间SDE表述如下：
+\begin{equation}
+    d\x= [\underbrace{\f(t,\x)}_{\text{漂移项}} - g(t)^2 \underbrace{\nabla_\x \log p_t(\x)}_{\text{分数函数}} ]dt + \underbrace{g(t)d\bar{\w}}_{\text{反向时间扩散项}},
+\label{sde:backward}
+\end{equation}
+其中$p_t(\x)$是$t$时刻$\x$的概率分布，$\bar{\w}$是时间反向演化时的维纳过程（Wiener process）。
+
+下面我们结合(\ref{sde:forward})和(\ref{sde:backward})，给出DDPM和SGM前向和反向过程的SDE表达。首先由(\ref{ddpm:forward_process})中定义的DDPM前向过程的转移核$q(\x_t|\x_{t-1})$可知：
+\begin{equation*}
+    \x_i = \sqrt{1-\beta_i}\x_{i-1} + \sqrt{\beta_i}\z_{i-1},\ \z_{i-1}\sim\N(\mathbf{0},\mathbf{I}).
+\end{equation*}
+
+为了获得其对应的SDE表示，我们进行下面一系列设置。首先，我们将$\x_i,\x_{i-1},\z_i,\z_{i-1}$和$\beta_i$分别看成关于连续时间的函数，即
+\begin{equation*}
+    \x_i=\x(t+\Delta t),\ \x_{i-1}=\x(t),\ \z_i=\z(t+\Delta t),\ \z_{i-1}=\z(t),\ \beta_i = \beta(t+\Delta t)\Delta t,
+\end{equation*}
+其中$\Delta t$表示步长，$\beta(t+\Delta t)$是与噪声调度有关的系数。根据这些函数，我们可以推导DDPM的前向过程的SDE如下：
+\begin{align*}
+\begin{split}
+     \x_i &= \sqrt{1-\beta_i}\x_{i-1} + \sqrt{\beta_i}\z_{i-1} \\
+    \Rightarrow\quad  \x(t+\Delta t) &= \sqrt{1-\beta(t+\Delta t)\Delta t}\ \x(t) + \sqrt{ \beta(t+\Delta t)\Delta t}\ \z(t) \\
+    \Rightarrow\quad \x(t+\Delta t) &\approx \left(1- \frac{1}{2}\beta(t+\Delta t)\Delta t\right)\ \x(t) + \sqrt{ \beta(t+\Delta t)\Delta t}\ \z(t) \\
+    \Rightarrow\quad \x(t+\Delta t) &\approx \x(t) - \frac{1}{2}\beta(t)\Delta t\ \x(t) + \sqrt{ \beta(t)\Delta t}\ \z(t),
+\end{split}
+\end{align*}
+所以，当$\Delta t\rightarrow 0$时，我们便得到了DDPM前向过程的SDE的表达式：
+\begin{equation}
+    d\x = -\frac{1}{2}\beta(t)\x dt + \sqrt{\beta(t)}d\w.
+\label{sde:ddpm_forward}
+\end{equation}
+
+对比(\ref{sde:ddpm_forward})和(\ref{sde:forward})，我们可以发现DDPM中，$\f(t,\x)=-\frac{1}{2}\beta(t)\x$，$g(t)=\sqrt{\beta_t}$，将这两个函数的表达式代入(\ref{sde:backward})，我们便可以得到DDPM反向过程的SDE表示：
+\begin{align}
+\begin{split}
+    d\x &= \left[-\frac{1}{2}\beta(t)\x -\beta(t) \nabla_\x \log p_t(\x) \right] dt + \sqrt{\beta_t} d\bar{\w} \\
+    &= -\beta(t) \left[\frac{\x}{2} + \nabla_\x \log p_t(\x) \right]dt + \sqrt{\beta_t} d\bar{\w}.
+\end{split} 
+\label{sde:ddpm_backward}
+\end{align}
+
+下面我们介绍SGM的前向和反向过程对应的SDE，这里我们关注重要的NCSN方法\cite{song2020score}，它使用不同的尺度的噪声生成一系列带噪声样本。由于NCSN使用退火朗之万动力学，即在反向生成过程中逐渐降低噪声，所以在前向过程中，我们可以设噪声逐渐增大。假设一共有$L$个不同的噪声尺度，记为$\sigma_1 > \sigma_2 > \cdots > \sigma_L > 0$。NCSN按照(\ref{sgm:ncsn_forward}在不同时刻向原始样本$\x_0$加入不同尺度的噪声，所以我们有：
+\begin{equation*}
+    p(\x_i|\x_0) =\N(\x_i|\x_0,\sigma_i^2),\ p(\x_{i-1}|\x_0) =\N(\x_{i-1}|\x_0,\sigma_{i-1}^2).
+\end{equation*}
+下面我们建立$\x_i$与$\x_{i-1}$间的关系，首先这两个变量的均值相同，故它们之间的差值是一个均值为$\mathbf{0}$的高斯变量，记为$\u$，故有$\x_i=\x_{i-1}+\u$。此外，注意到$\x_{i-1}$和$\u$相互独立，故$\text{Var}[\x_i]=\text{Var}[\x_{i-1}]+\text{Var}[\u]$，所以有$\text{Var}[\u]=\text{Var}[\x_i]-\text{Var}[\x_{i-1}]=\sigma_i^2-\sigma_{i-1}^2$。综上所述，我们有：
+\begin{equation*}
+    \x_i = \x_{i-1} + \sqrt{\sigma_i^2-\sigma_{i-1}^2} \z_{i-1},\ i=1,2,\cdots,L.
+\end{equation*}
+
+下面我们根据上式推导NCSN前向过程的SDE形式。针对$\x_i,\x_{i-1},\z_{i-1}$和$\sigma_i,\sigma_{i-1}$，我们使用与DDPM前向过程的SDE推导相同的连续函数形式，即
+\begin{equation*}
+    \x_i=\x(t+\Delta t),\ \x_{i-1}=\x(t),\ \z_{i-1}=\z(t),\ \sigma_i = \sigma(t+\Delta t),\ \sigma_{i-1} = \sigma(t),
+\end{equation*}
+其中$\Delta t$表示步长。于是我们有：
+\begin{align*}
+    \x_i &= \x_{i-1} + \sqrt{\sigma_i^2-\sigma_{i-1}^2}\ \z_{i-1} \\
+    \Rightarrow\quad \x(t+\Delta t) &=\x(t) + \sqrt{\sigma(t+\Delta t) -\sigma(t)}\ \z(t) \\
+    \Rightarrow\quad \x(t+\Delta t) &\approx \x(t) + \sqrt{\frac{d[\sigma(t)]^2}{dt}\Delta t}\ \z(t).
+\end{align*}
+所以，当$\Delta t\rightarrow 0$时，我们便得到了SGM前向过程的SDE的表达式：
+\begin{equation}
+    d\x = \sqrt{\frac{d[\sigma(t)]^2}{dt}}d\w.
+\label{sde:sgm_forward}
+\end{equation}
+对比(\ref{sde:sgm_forward})和(\ref{sde:forward})，我们可以发现SGM中，$\f(t,\x)=0$，$g(t)=\sqrt{\frac{d[\sigma(t)]^2}{dt}}$，将这两个函数的表达式代入(\ref{sde:backward})，我们便可以得到DDPM反向过程的SDE表示：
+\begin{align}
+\begin{split}
+    d\x &= [\f(t,\x) - g(t)^2 \nabla_\x \log p_t(\x) ]dt + g(t)d\bar{\w} \\
+    &= -\left(\frac{d[\sigma(t)]^2}{dt} \nabla_\x \log p_t(\x) \right)dt + \sqrt{\frac{d[\sigma(t)]^2}{dt}} d\bar{\w}.
+\end{split} 
+\label{sde:sgm_backward}
+\end{align}
+
+
+
 
 
 \newpage
