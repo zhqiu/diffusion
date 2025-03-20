@@ -336,6 +336,13 @@ SDE相比ODE多了一项刻画\emph{随机扰动}的项，具体地，其表达�
 \end{equation}
 其中$p_t(\x)$是$t$时刻$\x$的概率分布，$\bar{\w}$是时间反向演化时的维纳过程（Wiener process）。
 
+Song等人\cite{song2019generative}证明了下面被称为概率流（probability flow）ODE的轨迹与反向时间SDE具有相同的边际分布，其形式如下：
+\begin{equation}
+    d\x= \left[\f(t,\x) -\frac{1}{2} g(t)^2\nabla_\x \log p_t(\x)\right]dt.
+\label{ode:backward}
+\end{equation}
+反向时间SDE和概率流ODE都可以从同一数据分布中进行采样，因为它们的轨迹具有相同的边际分布特征。下面我们介绍DDPM和SGM的前向和反向SDE形式，概率流ODE形式由此可以很容易地推出（因为其由和反向时间SDE相同的$\f(t,\x)$，$g(t)$和$\nabla_\x\log p_t(\x)$定义），所以我们不展开阐述。
+
 下面我们结合(\ref{sde:forward})和(\ref{sde:backward})，给出DDPM和SGM前向和反向过程的SDE表达。首先由(\ref{ddpm:forward_process})中定义的DDPM前向过程的转移核$q(\x_t|\x_{t-1})$可知：
 \begin{equation*}
     \x_i = \sqrt{1-\beta_i}\x_{i-1} + \sqrt{\beta_i}\z_{i-1},\ \z_{i-1}\sim\N(\mathbf{0},\mathbf{I}).
@@ -402,8 +409,25 @@ SDE相比ODE多了一项刻画\emph{随机扰动}的项，具体地，其表达�
 \label{sde:sgm_backward}
 \end{align}
 
+一旦我们能学到每个时刻$t$的分数函数$\nabla_\x\log p_t(\x)$，那么我们便可以由(\ref{sde:ddpm_backward})和(\ref{sde:sgm_backward})得到DDPM和SGM反向过程SDE或概率流ODE，并利用通过多种优化技术来求解它们以迭代式地生成样本。一般的SDE或ODE难有解析解，所以人们一般用数值方法求解，例如退火朗之万动力学\cite{song2019generative}、数值SDE求解器\cite{jolicoeur2021gotta,song2020score}、数值ODE求解器\cite{karras2022elucidating,lu2022dpm,song2020denoising,song2020score}以及预测器-校正器（predictor-corrector）方法（基于马尔可夫链的解析解与数值ODE/SDE求解器的数值解相结合）\cite{song2020score}。我们这里不再介绍这些技术的细节，感兴趣的读者可以参考相关文献。
+
+\subsection{条件生成的核心方法}
+
+在扩散模型中实现条件生成的核心挑战在于如何将外部信息（如文本、类别标签等）有效融入生成过程。目前主流方法可分为分类器引导（classifier guidance）、无分类器引导（classifier-free guidance）和CLIP引导（CLIP guidance），下面分布介绍这三大类引导方法的具体实现。
+
+分类器引导\cite{dhariwal2021diffusion}
+
+无分类器引导\cite{ho2022classifier}
+
+CLIP引导\cite{clip-guide-1,Patashnik_2021_ICCV,gal2022StyleGAN}
 
 
+
+\newpage
+
+后续关于扩散模型的研究主要从三个方向改进经典方法（DDPMs、SGMs和Score SDEs）：（1）更快、更高效的采样；（2）更精确的似然与密度估计；（3）处理特殊结构数据（如具有排列不变性、流形结构和离散结构的数据）。我们将在接下来的分别对这些方向展开详细综述。
+
+\section{扩散模型后续改进}
 
 
 \newpage
