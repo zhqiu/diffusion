@@ -413,17 +413,88 @@ Song等人\cite{song2019generative}证明了下面被称为概率流（probabili
 
 \subsection{条件生成的核心方法}
 
-在扩散模型中实现条件生成的核心挑战在于如何将外部信息（如文本、类别标签等）有效融入生成过程。目前主流方法可分为分类器引导（classifier guidance）、无分类器引导（classifier-free guidance）和CLIP引导（CLIP guidance），下面分布介绍这三大类引导方法的具体实现。
+在扩散模型中实现条件生成的核心挑战在于如何将外部信息（如文本、类别标签等）有效融入生成过程。我们这里用$y$表示外部信息，它可以通过一些网络结构（例如cross attention等）加入扩散模型中，我们由此可以训练$p_{\theta}(\x_t|\x_{t+1},y)$来实现基于外部信息的生成。但这种方式往往效果不佳【为什么？引用？】
 
-分类器引导\cite{dhariwal2021diffusion}
+为了克服这种问题，研究者提出了多种方法，在生成时加入额外的引导信号以提升生成质量。目前主流方法可分为分类器引导（classifier guidance）、无分类器引导（classifier-free guidance）和CLIP引导（CLIP guidance）。下面我们将首先描述在$y$参与生成时扩散模型的反向过程，随后介绍这三大类引导方法的具体实现。
 
-无分类器引导\cite{ho2022classifier}
+我们参考\cite{dhariwal2021diffusion}，将从DDPM的视角描述外部信息$y$参与生成时扩散模型的反向过程，我们将此称为条件反向过程（conditional reverse process）。我们之前介绍了无条件的$p_{\theta}(\x_{t}|\x_{t+1})$的定义，我们希望在此基础上建立$p(\x_{t}|\x_{t+1},y)$的表达，具体地，我们有：
+\begin{align}
+\begin{split}
+    p(\x_{t}|\x_{t+1},y) &= \frac{p(\x_{t},\x_{t+1},y)}{p(\x_{t+1},y)} = \frac{p(\x_{t},\x_{t+1},y)}{p(y|\x_{t+1})p(\x_{t+1})} = \frac{p(\x_{t},y|\x_{t+1})p(\x_{t+1})}{p(y|\x_{t+1})p(\x_{t+1})} \\
+    &= \frac{p(\x_{t}|\x_{t+1}) p(y|\x_{t},\x_{t+1})p(\x_{t+1})}{p(y|\x_{t+1})p(\x_{t+1})} = \frac{p(\x_{t}|\x_{t+1}) p(y|\x_{t},\x_{t+1})}{p(y|\x_{t+1})}.
+\end{split}
+\label{conditional:1}
+\end{align}
+又因为
+\begin{equation*}
+    p(y|\x_{t},\x_{t+1})=p(\x_{t+1}|\x_t,y)\frac{p(y|\x_t)}{p(\x_{t+1}|\x_t)} = p(\x_{t+1}|\x_t)\frac{p(y|\x_t)}{p(\x_{t+1}|\x_t)} = p(y|\x_t),
+\end{equation*}
+即由$\x_t$预测外部信息$y$实际上不依赖于$\x_{t+1}$。将上式代入(\ref{conditional:1})中，可得
+\begin{equation*}
+    p(\x_{t}|\x_{t+1},y) = \frac{p(\x_{t}|\x_{t+1})p(y|\x_t)}{p(y|\x_{t+1})}.
+\end{equation*}
+又因为$p(y|\x_{t+1})$与$\x_{t}$的生成无关，所以我们可以将此项视作一个常数$Z$。此外，上式中的$p(\x_{t}|\x_{t+1})$实际上可以用之前介绍的神经网络$p_\theta(\x_{t}|\x_{t+1})$近似，于是我们有：
+\begin{equation}
+    p_{\theta}(\x_{t}|\x_{t+1},y) = \frac{1}{Z} p_\theta(\x_{t}|\x_{t+1})p(y|\x_t).
+\label{conditional:backward}  
+\end{equation}
 
-CLIP引导\cite{clip-guide-1,Patashnik_2021_ICCV,gal2022StyleGAN}
+之前在介绍DDPM时，我们在(\ref{ddpm:p_reverse})中给出了$p_\theta(\x_{t}|\x_{t+1})$的具体形式，这里我们简记为$p_\theta(\x_{t}|\x_{t+1})=\N(\mu,\Sigma)$，下面我们参考\cite{dhariwal2021diffusion}，给出$p_{\theta}(\x_{t}|\x_{t+1},y)$对应的高斯分布的均值和方差表达式。首先，由$p_{\theta}(\x_{t}|\x_{t+1})$的定义，我们可以将其对数似然写成：
+\begin{equation*}
+    \log p_{\theta}(\x_{t}|\x_{t+1}) = -\frac{1}{2}(\x_t-\mu)^{T}\Sigma^{-1}(\x_t-\mu) + C_0,
+\end{equation*}
+其中$C_0$是一个与$\x_t$无关的常数。此外，对于(\ref{conditional:backward})中的$p(y|\x_t)$的对数似然，我们可以通过其在$\x_t=\mu$处的Taylor展开进行近似：
+\begin{equation*}
+    \log p(y|\x_t)\approx \log p(y|\x_t)|_{\x_t=\mu} + (\x_t-\mu)\nabla_{\x_t} \log p(y|\x_t)|_{\x_t=\mu} = (\x_t-\mu)g + C_1,
+\end{equation*}
+其中我们用$g$表示$\nabla_{\x_t} \log p(y|\x_t)|_{\x_t=\mu}$，$C_1$是一个与$\x_t$无关的常数。根据上面两式，我们可以推导(\ref{conditional:backward})中$p_{\theta}(\x_{t}|\x_{t+1},y)$的对数似然如下：
+\begin{align}
+\begin{split}
+    \log p_{\theta}(\x_{t}|\x_{t+1},y) &= \log(p_\theta(\x_{t}|\x_{t+1})p(y|\x_t)) + C_2 \\
+    &\approx -\frac{1}{2}(\x_t-\mu)^{T}\Sigma^{-1}(\x_t-\mu) + (\x_t-\mu)g + C_3 \\
+    &= -\frac{1}{2} (\x_t-\mu-\Sigma g)^{T}\Sigma^{-1}(\x_t-\mu-\Sigma g) + \frac{1}{2}g^T\Sigma g + C_3 \\
+    &= -\frac{1}{2} (\x_t-\mu-\Sigma g)^{T}\Sigma^{-1}(\x_t-\mu-\Sigma g) + C_4
+\end{split}
+\label{conditional:backward_gaussian}
+\end{align}
+其中$C_2$，$C_3$和$C_4$都是与$\x_t$无关的常数。从(\ref{conditional:backward_gaussian})中我们可以看出$p_{\theta}(\x_{t}|\x_{t+1},y)$实际上服从高斯分布$\N(\mu+\Sigma g,\Sigma)$。下面我们三种常用的条件生成方法，它们实际上分别采用不同的方式来实现$p(y|\x_t)$。
 
 
+分类器引导\cite{dhariwal2021diffusion}实际上通过训练一个分类器$p_{\phi}(y|\x_t)$（$\phi$表示模型参数）来实现$p(y|\x_t)$，分类器的梯度随后可对扩散模型施加条件约束，以让扩散模型更好地利用类别标签或文本进行条件生成。具体地，我们可以训练一个以带噪声样本$\x_t$为输入的分类器$p_{\phi}(y|\x_t)$。假设此时扩散模型的$p_{\theta}(\x_{t-1}|\x_t,y)$对应的高斯分布的均值和方差分别为$\mu_\theta(\x_t|y)$和$\Sigma_\theta(\x_t|y)$，那么由(\ref{conditional:backward_gaussian})可知，分类器引导的扩散模型的方差仍为$\Sigma_\theta(\x_t|y)$，均值为：
+\begin{equation}
+\hat{\mu}_{\theta}(\x_t|y)=\mu_{\theta}(\x_t|y) + s\cdot\Sigma_\theta(\x_t|y)\cdot\nabla_{\x_t}\log p_{\phi}(y|\x_t),
+\label{conditional_classifier_guided}
+\end{equation}
+其中$s$是控制分类器引导强度的超参数。从直观上来看，分类器引导通过$\nabla_{\x_t}\log p_{\phi}(y|\x_t)$项，使得生成的样本与外部信息$y$的关联更强。分类器引导虽然在实践中展示出来有效性，但是这种方法需要单独在噪声样本上训练分类器，这带来了额外的计算和存储开销。
 
-\newpage
+无分类器引导\cite{ho2022classifier}通过隐式地估计$p(y|\x_t)$来实现引导的目的。具体地，由Bayes公式，我们有：
+\begin{equation*}
+    p(y|\x_t) \propto \frac{p(\x_t|y)}{p(\x_t)},
+\end{equation*}
+所以我们可以推出：
+\begin{equation*}
+    \nabla_{\x_t}\log p(y|\x_t) \propto \nabla_{\x_t}\log \left(\frac{p(\x_t|y)}{p(\x_t)}\right) = \nabla_{\x_t}\log p(\x_t|y) -\nabla_{\x_t}\log p(\x_t).
+\end{equation*}
+我们这里采用\cite{ho2022classifier}中的符号表示，即我们现在已有DDPM扩散模型$\epsilon_\theta(\x_t|y)$，由我们之前的介绍可以知道，该去噪函数实际上正比于分数函数$\nabla_{\x_t}\log p(\x_t|y)$。于是实际我们进一步有：
+\begin{align*}
+    \nabla_{\x_t}\log p(y|\x_t) & \propto \nabla_{\x_t}\log p(\x_t|y) -\nabla_{\x_t}\log p(\x_t) \\
+    &\propto \epsilon_\theta(\x_t|y) - \epsilon_\theta(\x_t).
+\end{align*}
+上式中$\epsilon_\theta(\x_t|y)$可以通过在DDPM的训练中融合外部信息$y$训练得到，而$\epsilon_\theta(\x_t)$可以通过在训练$\epsilon_\theta(\x_t|y)$中按一定概率将$y$设置成空白得到\cite{ho2022classifier}，我们将此情况对应的去噪函数记为$\epsilon_\theta(\x_t|\emptyset)$。从直观上来看，实际上\emph{有条件预测的噪声和无条件预测的噪声的差值，就是该条件对应的修正方向}。所以，我们最后可得无分类器引导的去噪函数如下：
+\begin{equation}
+    \hat{\epsilon}_\theta(\x_t|y) = \epsilon_\theta(\x_t|\emptyset) + s\cdot(\epsilon_\theta(\x_t|y) - \epsilon_\theta(\x_t|\emptyset)),
+\label{conditional_classifier_free_guided}
+\end{equation}
+其中$s$是控制引导强度的超参数。无分类器引导具有两个显著优势。首先，它允许单个模型在直接利用自身习得的知识进行生成，而无需依赖另一个分类模型。其次，当需要基于难以通过分类器预测的信息（例如文本）进行条件生成时，这种引导方式能够显著简化条件控制流程。
+
+CLIP（Contrastive Language-Image Pre-training）\cite{radford2021learning}是一种用于学习文本与图像联合表征的可扩展方法。CLIP模型由两个独立组件构成：图像编码器$f(x)$和文本编码器$g(y)$。CLIP模型基于海量的图像-文本对数据，通过优化对比损失（contrastive loss）\cite{oord2018representation}让成对的图像和文本特征相互靠近，不成对的图像和文本相互远离，以此学习良好的特征表示。
+
+由于CLIP能够很好地度量图像与文本描述之间的匹配程度，多项研究\cite{clip-guide-1,Patashnik_2021_ICCV,gal2022StyleGAN}利用它引导生成对抗网络（GAN）等生成模型生成符合用户指定文本描述的图像。若将这一思路应用于扩散模型，我们可以用CLIP模型替代分类器指导中的分类器。具体而言，类似我们通过图像编码与文本编码的内积$f(\x_t)\cdot g(y)$来近似$p(y|\x_t)$，于是我们可以按如下方式对反向过程的高斯均值进行扰动：
+\begin{equation}
+\hat{\mu}_{\theta}(\x_t|y)=\mu_{\theta}(\x_t|y) + s\cdot\Sigma_\theta(\x_t|y)\cdot\nabla_{\x_t}(f(\x_t)\cdot g(y)),
+\label{conditional_clip_guided}
+\end{equation}
+其中$s$是控制引导强度的超参数。与分类器指导类似，必须对CLIP模型施加噪声训练（即在噪声图像$\x_t$上训练），以确保反向过程中梯度计算的正确性，这实际上限制了该方法的可扩展性。
 
 后续关于扩散模型的研究主要从三个方向改进经典方法（DDPMs、SGMs和Score SDEs）：（1）更快、更高效的采样；（2）更精确的似然与密度估计；（3）处理特殊结构数据（如具有排列不变性、流形结构和离散结构的数据）。我们将在接下来的分别对这些方向展开详细综述。
 
