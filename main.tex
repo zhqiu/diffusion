@@ -300,6 +300,7 @@ p_{\theta}(\x_{t-1}|\x_t) = \N(\x_{t-1}| \mu_{\theta}(\x_t,t), \sigma_q^2(t)\mat
 
 
 \subsection{随机微分方程 (Score SDE)}
+\label{subsection:sde}
 
 之前我们介绍的DDPM和SGM都是利用离散时间上的迭代关系式来刻画相邻时刻两个变量间的关系，实际上通过一些连续化技术和公式变化，它们都可以与连续时间上的微分方程（Differential Equation）建立联系。我们在本节首先介绍微分方程（包含常微分方程和随机微分方程）的定义，随后给出DDPM和SGM的随机微分方程形式表示。
 
@@ -400,7 +401,7 @@ Song等人\cite{song2019generative}证明了下面被称为概率流（probabili
     d\x = \sqrt{\frac{d[\sigma(t)]^2}{dt}}d\w.
 \label{sde:sgm_forward}
 \end{equation}
-对比(\ref{sde:sgm_forward})和(\ref{sde:forward})，我们可以发现SGM中，$\f(t,\x)=0$，$g(t)=\sqrt{\frac{d[\sigma(t)]^2}{dt}}$，将这两个函数的表达式代入(\ref{sde:backward})，我们便可以得到DDPM反向过程的SDE表示：
+对比(\ref{sde:sgm_forward})和(\ref{sde:forward})，我们可以发现SGM中，$\f(t,\x)=0$，$g(t)=\sqrt{\frac{d[\sigma(t)]^2}{dt}}$，将这两个函数的表达式代入(\ref{sde:backward})，我们便可以得到SGM反向过程的SDE表示：
 \begin{align}
 \begin{split}
     d\x &= [\f(t,\x) - g(t)^2 \nabla_\x \log p_t(\x) ]dt + g(t)d\bar{\w} \\
@@ -499,6 +500,29 @@ CLIP（Contrastive Language-Image Pre-training）\cite{radford2021learning}是�
 后续关于扩散模型的研究主要从三个方向改进经典方法（DDPMs、SGMs和Score SDEs）：（1）更快、更高效的采样；（2）更精确的似然与密度估计；（3）处理特殊结构数据（如具有排列不变性、流形结构和离散结构的数据）。我们将在接下来的分别对这些方向展开详细综述。
 
 \section{扩散模型后续改进}
+
+加速扩散模型采样的工作可以根据其是否需要在训练好的扩散模型基础上再进行训练分成两类：不需要训练（learning-free）的方法和需要训练（learning-based）的方法。正如我们在\ref{subsection:sde}节所介绍的，DDPM和SGM的反向过程实际上都可以看成各自反向时间SDE（即(\ref{sde:ddpm_backward})和(\ref{sde:sgm_backward})）的特定离散化。事实上，许多扩散模型采样器的设计都基于对(\ref{sde:backward})中的反向时间SDE或(\ref{ode:backward})中的概率流ODE进行离散化。为了有效降低采样步骤，许多方法聚焦于开发能够降低采样步数同时最小化离散误差的离散化方案。
+
+我们首先介绍对反向时间SDE进行离散化的主要进展。噪声条件分数网络（NCSN）\cite{song2019generative}提出的退火朗之万动力学（Annealed Langevin Dynamics，ALD）通过两重循环迭代生成数据，其中外循环不断递减噪声尺度（$\sigma_1>\sigma_2>\cdots>\sigma_L>0$），内循环在每个噪声尺度下执行若干次采样。这种做法的优势在于采样初期使用高噪声可以更好地探索全局信息，而后期使用低噪声让生成的数据平稳地收敛到原始数据分布。一致退火采样（Consistent Annealed Sampling，CAS）\cite{JolicoeurMartineau2021AdversarialSM}指出ALD实际上存在噪声衰减不一致问题，即在第$i$轮外循环中，样本噪声尺度实际上大于理论期望的$\sigma_i^2$，这将导致朗之万动力无法完全收敛，噪声会不断累积。CAS通过动态调整分数函数与加入噪声的缩放系数，来确保每步的噪声方差严格匹配目标值$\sigma_i^2$（即一致性约束），避免误差传递。
+
+%受统计力学启发，临界阻尼朗之万扩散（Critically-Damped Langevin Diffusion，CLD）\cite{dockhorn2021score}提出了一个带有辅助速度项的增广分数函数，并指出它实现了更平滑的数据扰动，并比传统扩散模型的分数函数学习难度更低。此外，CLD还包含一个高效的反向时间SDE积分器，提升采样速度与质量。
+
+Song等人\cite{song2020score}提出了一种与前向过程同步的方式来离散化反向时间SDE，即对前向时间SDE的每一步离散化，我们都有其对应的反向时间SDE离散化。\cite{song2020score}证明了这种反向时间SDE离散化实际上是(\ref{sde:backward})的数值SDE求解器。Jolicoeur-Martineau等人\cite{jolicoeur2021gotta}开发了一种具有自适应步长的SDE求解器，以加快生成速度。具体地，在每个时间步，该方法使用一个高阶SDE求解器与一个低阶SDE求解器生成新样本，如果两个样本越相似，那么说明这步的难度越低，那么步长就相应地设置得越大。Song等人\cite{song2020score}提出的预测器-校正器方法通过结合数值SDE求解器（预测器）和基于分数的MCMC方法（校正器）求解反向SDE。该方法在每个时间步先用数值SDE求解器生成粗略样本，再利用MCMC校正器修正其边缘分布，确保样本在所有时间步与反向SDE解轨迹的分布一致。
+
+
+大量关于更快扩散采样器的工作基于求解\ref{subsection:sde}节中介绍的概率流ODE(\ref{ode:backward})。与SDE求解器相比，ODE求解器的轨迹是确定性的，因此不受随机波动的影响。这些确定性ODE求解器通常比对应的SDE求解器收敛得更快，但代价是样本质量略有下降。去噪扩散隐式模型（Denoising Diffusion Implicit Model，DDIM）是加速扩散模型采样的最早工作之一。最初的动机是将原始DDPM扩展到具有以下马尔可夫链的非马尔可夫情况：
+【这里列一下$q(\x_{t-1}|\x_t,\x_0)$中均值函数的表达式】，人们发现DDIM的采样过程实际上对应了概率流ODE的一种特殊离散化。
+
+
+
+广义去噪扩散隐式模型（gDDIM）\cite{zhang2022gddim}提出了一种修改后的评分网络参数化，使更一般的扩散过程能够进行确定性采样，例如临界阻尼朗之万扩散（CLD）\cite{dockhorn2021score}中的过程【看一下原文再确认一下】。PNDM\cite{liu2021pseudo}提出了一种伪数值方法，在$\mathbb{R}^N$中的特定流形上生成样本。它使用带有非线性传递部分的数值求解器来解决流形上的微分方程，然后生成样本，DDIM实际上是该方法的一种特例。
+
+
+Karras等人\cite{karras2022elucidating}提出一种用朗之万扩散项来“搅动”生成过程，以提升确定性ODE积分器的效果。具体地，每步先通过朗之万扩散项（分数函数+随机噪声）让样本朝当前时刻的边缘分布移动，这样实际上隐式地修正了前面步骤的误差，随后再使用ODE求解以降低噪声。
+
+Karras等人\cite{karras2022elucidating}表明，Heun的二阶方法\cite{ascher1998computer}在样本质量和采样速度之间提供了极佳的权衡。高阶求解器以每个时间步额外评估一次学习的评分函数为代价，导致较小的离散化误差。Heun方法生成的样本质量与欧拉方法相当甚至更好，但需要的采样步骤更少。扩散指数积分器采样器\cite{zhang2022fast}和DPM-solver\cite{lu2022dpm}利用概率流ODE的半线性结构开发了定制的ODE求解器，比通用的龙格-库塔方法更高效。具体来说，概率流ODE的线性部分可以解析计算，而非线性部分可以用类似于ODE求解器领域中指数积分器的技术来解决。这些方法包含DDIM作为一阶近似。然而，它们也允许更高阶的积分器，这些积分器可以在仅10到20次迭代中产生高质量样本——远少于没有加速采样的扩散模型通常需要的数百次迭代【这些方法也要大致看一下】。
+
+
 
 
 \newpage
