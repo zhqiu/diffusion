@@ -501,6 +501,8 @@ CLIP（Contrastive Language-Image Pre-training）\cite{radford2021learning}是�
 
 \section{扩散模型后续改进}
 
+\subsection{更快更高效的采样}
+
 加速扩散模型采样的工作可以根据其是否需要在训练好的扩散模型基础上再进行训练分成两类：不需要训练（learning-free）的方法和需要训练（learning-based）的方法。正如我们在\ref{subsection:sde}节所介绍的，DDPM和SGM的反向过程实际上都可以看成各自反向时间SDE（即(\ref{sde:ddpm_backward})和(\ref{sde:sgm_backward})）的特定离散化。事实上，许多扩散模型采样器的设计都基于对(\ref{sde:backward})中的反向时间SDE或(\ref{ode:backward})中的概率流ODE进行离散化。为了有效降低采样步骤，许多方法聚焦于开发能够降低采样步数同时最小化离散误差的离散化方案。
 
 我们首先介绍对反向时间SDE进行离散化的主要进展。噪声条件分数网络（NCSN）\cite{song2019generative}提出的退火朗之万动力学（Annealed Langevin Dynamics，ALD）通过两重循环迭代生成数据，其中外循环不断递减噪声尺度（$\sigma_1>\sigma_2>\cdots>\sigma_L>0$），内循环在每个噪声尺度下执行若干次采样。这种做法的优势在于采样初期使用高噪声可以更好地探索全局信息，而后期使用低噪声让生成的数据平稳地收敛到原始数据分布。一致退火采样（Consistent Annealed Sampling，CAS）\cite{JolicoeurMartineau2021AdversarialSM}指出ALD实际上存在噪声衰减不一致问题，即在第$i$轮外循环中，样本噪声尺度实际上大于理论期望的$\sigma_i^2$，这将导致朗之万动力无法完全收敛，噪声会不断累积。CAS通过动态调整分数函数与加入噪声的缩放系数，来确保每步的噪声方差严格匹配目标值$\sigma_i^2$（即一致性约束），避免误差传递。
@@ -531,16 +533,14 @@ DDIM与DDPM的训练目标一致，都是训练模型$\epsilon_\theta(\x_t,t)$�
 广义去噪扩散隐式模型（gDDIM）\cite{zhang2022gddim}提出通过分数函数网络的参数化方式，将DDIM推广到更一般的扩散模型中，例如模糊扩散模型（Blurring Diffusion Model，BDM）\cite{Hoogeboom2023blurring}和临界阻尼朗之万扩散（CLD）\cite{dockhorn2021score}等。PNDM\cite{liu2021pseudo}将扩散模型的逆向过程视为在$\mathbb{R}^N$中的特定流形上的微分方程求解问题，并提出一种伪数值方法使其在数据分布的高密度流形上生成样本，避免传统数值方法因偏离流形而导致的性能退化，DDIMs本质上是该方法的一种简单特例。
 
 
-Karras等人\cite{karras2022elucidating}提出一种用朗之万扩散项来“搅动”生成过程，以提升确定性ODE积分器的效果。具体地，每步先通过朗之万扩散项（分数函数+随机噪声）让样本朝当前时刻的边缘分布移动，这样实际上隐式地修正了前面步骤的误差，随后再使用ODE求解以降低噪声。
-
-Karras等人\cite{karras2022elucidating}表明，Heun的二阶方法\cite{ascher1998computer}在样本质量和采样速度之间提供了极佳的权衡。高阶求解器以每个时间步额外评估一次学习的评分函数为代价，导致较小的离散化误差。Heun方法生成的样本质量与欧拉方法相当甚至更好，但需要的采样步骤更少。
-
-【上面这篇文章再看一下】
-
-扩散指数积分器采样器\cite{zhang2022fast}和DPM-solver\cite{lu2022dpm}利用概率流ODE的半线性结构开发了定制的ODE求解器，比通用的龙格-库塔方法更高效。具体来说，概率流ODE的线性部分可以解析计算，而非线性部分可以用类似于ODE求解器领域中指数积分器的技术来解决。这些方法包含DDIM作为一阶近似。然而，它们也允许更高阶的积分器，这些积分器可以在仅10到20次迭代中产生高质量样本——远少于没有加速采样的扩散模型通常需要的数百次迭代【这些方法也要大致看一下】。
+Karras等人\cite{karras2022elucidating}为了提升概率流ODE的求解效率，采用Heun的二阶方法\cite{ascher1998computer}通过额外的校正步骤减少局部截断误差，在样本质量和采样速度之间取得了较好的权衡。虽然概率流ODE求解收敛更快，但生成的样本质量会有所下降。针对这个问题，Karras等人\cite{karras2022elucidating}提出一种用朗之万扩散项（分数函数+随机噪声）来“搅动”生成过程，即通过该项将样本推回真实数据流形，随后再使用ODE求解以降低噪声的算法。
 
 
+扩散指数积分器采样器（Diffusion Exponential Integrator Sampler）\cite{zhang2022fast}和DPM-solver\cite{lu2022dpm}利用概率流ODE的半线性结构（即包含一个线性项和神经网络非线性项）开发了定制的ODE求解器，比通用的龙格-库塔方法更高效。具体来说，概率流ODE的线性部分可以解析计算，而非线性部分可以用类似于ODE求解器领域中指数积分器的技术来解决。这些积分器可以在仅10到20次迭代中产生高质量样本，而没有加速采样的扩散模型通常需要的数百次迭代。
 
+\subsection{更精确的似然或密度估计}
+
+\subsection{流形上的高效扩散模型学习}
 
 \newpage
 \bibliography{ref}
