@@ -567,8 +567,12 @@ Analytic-DPM\cite{bao2021analytic}给出了扩散模型的最优反向方差可�
 其中$\sigma_q^2(t)$由(\ref{ddpm:dist_of_reverse})定义，$\alpha_t=1-\beta_t$（$\beta_t$由(\ref{ddpm:forward_process})定义），
 $\bar{\beta}_t=1-\bar{\alpha}_t$（$\bar{\alpha}_t$由(\ref{ddpm:bar_alpha})定义），$q(\x_t)$是前向过程生成的$\x_t$的边缘分布，$d$是数据的维度。可以看出，给定预训练的分数模型后即可确定最优逆向方差，并且使用该最优方差可得到更紧致的变分下界估计。
 
-
 \subsection{流形上的高效扩散模型学习}
+
+传统的基于分数的生成模型（SGM）通常直接在数据空间（如像素空间）中应用，这导致采样时需要大量网络评估，计算成本高且效率低。潜在分数生成模型（Latent Score-Based Generative Model，LSGM）\cite{vahdat2021score}提出将SGM和变分自编码器（Variational Autoencoder，VAE）结合，VAE将原始数据映射到潜在空间中，SGM在该空间中使用，从而解决了传统SGM在计算效率和适用性上的局限性，同时保持了生成质量和分布覆盖能力。不同于联合训练VAE和扩散模型，潜在扩散模型（Latent Diffusion Model，LDM）\cite{rombach2022high}提出分阶段训练，即首先训练VAE来产生一个“感知等效”的低维表示空间，随后再在此空间中训练扩散模型。由于该方法的精巧设计，它能在有效降低计算复杂度的同时提升视觉保真度。
+
+
+
 
 \newpage
 \bibliography{ref}
