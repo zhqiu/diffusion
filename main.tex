@@ -224,23 +224,23 @@ p_{\theta}(\x_{t-1}|\x_t) = \N(\x_{t-1}| \mu_{\theta}(\x_t,t), \sigma_q^2(t)\mat
 \end{equation*}
 
 
-
-
 \subsection{基于分数的生成模型 (SGM)}
 
-基于分数的生成模型的核心是Stein分数函数（简称分数函数）\cite{Hyvrinen2005EstimationON}。给定一个样本概率密度函数$p(\x)$，其分数函数被定义为对数概率密度的梯度：
+基于分数的生成模型的核心在于利用Stein分数函数（简称分数函数）\cite{Hyvrinen2005EstimationON}这一关键工具。对于给定的样本概率密度函数$p(\x)$，其Stein分数函数定义为对数概率密度的梯度场：
 \begin{equation*}
     \s_\theta(\x) := \nabla_{\x}\log p(\x).
 \end{equation*}
-注意不同于统计领域常见的Fisher分数$\nabla_\theta \log p_{\theta}(\x)$，Stein分数是关于\emph{样本}的梯度，而不是关于模型参数$\theta$的梯度。该分数函数实际上是数据分布的梯度场，它指向使数据出现概率增加最快的方向。
+需要特别强调的是，此定义与统计学中常见的Fisher分数$\nabla_\theta \log p_{\theta}(\x)$存在本质区别：Stein分数函数关注的是\emph{样本空间}上的梯度变化，而非模型参数空间$\theta$的梯度信息。这一向量场揭示了数据分布的内在几何特征，其方向指示了使数据出现概率增加最快的路径。
 
-当我们获得分数函数$\nabla_{\x}\log p(\x)$后，便可以通过朗之万动力学（Langevin dynamics）来从概率分布$p(\x)$中采样。具体地，给定一个固定的步长$\alpha>0$以及一个初始值$\tilde{\x}_0\sim\pi(\x)$（$\pi(\x)$是某个先验分布），朗之万方法通过下面的方式进行迭代更新采样：
+当我们获得分数函数$\nabla_{\x}\log p(\x)$后，便可以通过朗之万动力学（Langevin dynamics）来从目标分布$p(\x)$中采样。具体地，给定步长$\alpha>0$以及一个初始值$\tilde{\x}_0\sim\pi(\x)$（$\pi(\x)$为任意先验分布），采样过程通过以下迭代公式完成：
 \begin{equation*}
     \tilde{\x}_t = \tilde{\x}_{t-1} + \frac{\alpha}{2} \nabla_{\x}\log p(\tilde{\x}_{t-1}) + \sqrt{\alpha}\epsilon_t,\quad \epsilon_t\sim\N(\mathbf{0},\mathbf{I}).
 \end{equation*}
-当某些正则性条件被满足时，若$\alpha\rightarrow 0$且$T\rightarrow \infty$，\cite{max2011bayesian}说明$\tilde{\x}_T$的分布与$p(\x)$相同。当$\alpha> 0$且$T< \infty$时上面的公式存在一些误差，需要用Metropolis-Hastings更新来修正，但在实践中通常可以忽略这种修正\cite{du2019implicit,nijkamp2019anatomy}。在本文中，当$\alpha$很小且$T$很大时，我们假设这种误差是可以忽略的。综上所述，我们知道只要能学到分数函数，便可以通过朗之万方法从原始数据分布中采样，这就是基于分数的生成模型的核心思想。
+当某些正则性条件被满足时，若$\alpha\rightarrow 0$且$T\rightarrow \infty$，\cite{max2011bayesian}的理论分析说明$\tilde{\x}_T$的分布将精确收敛于$p(\x)$。当$\alpha> 0$且$T< \infty$时上面的公式存在一些误差，需要用Metropolis-Hastings更新来修正，但在实践中通常可以忽略这种修正\cite{du2019implicit,nijkamp2019anatomy}。本文的后续分析将基于这一合理的工程假设展开。
 
-前人提出了多种方法来学习分数函数。一种方法称为显式分数函数匹配（Explicit Score Matching，ESM）\cite{vincent2011connection}。假设我们有一个包含$M$个样本的数据集$\X=\{\x^{(1)},\cdots,\x^{(M)}\}$，那么我们可以通过核密度估计来近似真实数据分布$p(\x)$：
+上述理论框架揭示了基于分数的生成模型的核心优势：通过建立分数函数估计与朗之万动力学采样之间的数学联系，实现了从数据分布中直接采样的可能性。这种方法的有效性主要依赖于两个关键因素——对目标分布分数函数的准确估计，以及朗之万动力学过程的合理配置。下面我们将围绕这两个核心要素展开深入探讨。
+
+在分数函数学习方法的演进过程中，研究者们提出了多种技术路线。一种方法称为显式分数函数匹配（Explicit Score Matching，ESM）\cite{vincent2011connection}。假设我们有一个包含$M$个样本的数据集$\X=\{\x^{(1)},\cdots,\x^{(M)}\}$，那么我们可以通过\emph{核密度估计}来近似真实数据分布$p(\x)$：
 \begin{equation*}
     q_h(\x)=\frac{1}{M}\sum_{m=1}^M \frac{1}{h} K\left(\frac{\x-\x^{(m)}}{h} \right),
 \end{equation*}
@@ -274,23 +274,24 @@ p_{\theta}(\x_{t-1}|\x_t) = \N(\x_{t-1}| \mu_{\theta}(\x_t,t), \sigma_q^2(t)\mat
 \E_{q_\sigma(\x^\prime|\x)p(\x)} \left[\frac{1}{2}\| \s_{\theta}(\x^\prime) - \nabla_{\x^\prime}\log q(\x^\prime|\x)  \|^2 \right] = \E_{q(\x^\prime)} \left[ \frac{1}{2}\left\| \s_\theta(\x +\sigma\epsilon)+\frac{\epsilon}{\sigma} \right\|^2\right].
 \label{sgm:dsm_obj}
 \end{equation}
-可以看出，上面的目标函数的作用，就是训练分数函数$\s_\theta$，让其预测输入样本中的噪声（乘上系数$-1/\sigma^2$）。从本质上看，\emph{去除样本中的噪声即等价于让样本朝分布中高概率区域移动}，这正是分数函数的定义。
+可以看出，上面的目标函数的作用，就是训练分数函数$\s_\theta$，让其预测输入样本中的噪声（乘上系数$-1/\sigma$）。从物理视角理解，\emph{去除样本中的噪声本质上引导样本向数据分布的高概率区域移动}，这正是分数函数的定义。
 
-尽管目标函数(\ref{sgm:dsm_obj})简洁且方便计算优化，但\cite{song2019generative}指出由于真实世界数据常呈现低维流形分布，所以分数函数在一些区域可能无定义；此外低密度区域的数据少，导致该区域的分数函数难以准确估计。为了应对这两个挑战，\cite{song2019generative}提出NCSN（Noise Conditional Score Network）方法采用不同尺度的随机高斯噪声对数据进行扰动。具体地，令$\sigma_1 > \sigma_2 > \cdots > \sigma_i > \cdots > \sigma_L > 0$是从大到小$L$个不同的尺度，并利用
+
+尽管目标函数(\ref{sgm:dsm_obj})形式简洁且易于优化，但\cite{song2019generative}指出，由于真实世界数据常呈现低维流形分布，这会导致两个关键问题：其一，分数函数在一些区域可能无定义；其二，低密度区域的样本稀疏使得分数函数估计不准确。为解决这些问题，\cite{song2019generative}提出了噪声条件分数网络（Noise Conditional Score Network，NCSN）方法，其核心思想是通过多尺度高斯噪声扰动数据。具体而言，设$\sigma_1 > \sigma_2 > \cdots > \sigma_i > \cdots > \sigma_L > 0$是递减的$L$个不同的噪声尺度，通过以下方式构造带噪样本：
 \begin{equation}
     q(\x^\prime|\x_0)=\N(\x^\prime|\x_0,\sigma_i^2\mathbf{I}),
 \label{sgm:ncsn_forward}
 \end{equation}
-即$\x^\prime=\x_0+\sigma_i\epsilon$来生成一系列具有不同噪声尺度的带噪样本。此时的目标变成：
+即$\x^\prime=\x_0+\sigma_i\epsilon$。此时的目标变成：
 \begin{align}
 \begin{split}
     \mathcal{L}_{\text{NCSN}}=\E_{i\in\{1,\cdots,L\},q(\x^\prime|\x_0)p(\x_0)} \left[\frac{1}{2} \lambda(\sigma_i)\left\| \s_\theta(\x^\prime,\sigma_i) + \frac{\epsilon}{\sigma_i} \right\|^2 \right],
 \end{split}
 \label{sgm:ncsn}
 \end{align}
-其中$\lambda(\sigma_i)$是一个取决于$\sigma_i$的权重系数，其目的是为了让不同损失项的量级不因$\sigma_i$的变化而变化，\cite{song2019generative}提出一种选择是让$\lambda(\sigma)=\sigma^2$。现在的分数函数为$\s_\theta(\x^\prime,\sigma_i)$，即我们输入带噪声的样本以及噪声尺度，输出该样本处的分数。从直观上看，通过在数据上施加不同尺度的高斯噪声，一方面使得扰动后的数据不再局限于低维流形，保证了分数函数估计在全空间上有定义，另一方面大尺度高斯噪声能有效填充数据分布中的低密度区域，为分数函数提供更多训练信号以提升估计精度。
+其中$\lambda(\sigma_i)$是一个取决于$\sigma_i$的权重系数，其目的是为了让不同损失项的量级不因$\sigma_i$的变化而变化，\cite{song2019generative}建议取$\lambda(\sigma)=\sigma^2$。这里的分数函数$\s_\theta(\x^\prime,\sigma_i)$同时接收带噪样本和噪声尺度作为输入。该方法具有双重优势：一方面，噪声扰动使数据脱离低维流形，确保分数函数在全空间有定义；另一方面，大尺度噪声能有效填充低密度区域，为分数估计提供更丰富的训练信号。
 
-在$\s_\theta(\x,\sigma)$完成后，NCSN提出使用退火朗之万动力学（Annealed Langevin dynamics）来采样生成样本，其数学描述如下：
+在$\s_\theta(\x,\sigma)$训练完成后，NCSN提出使用退火朗之万动力学（Annealed Langevin dynamics）来采样生成样本，其过程如下：
 \begin{align}
 \begin{split}
 \alpha_i &\leftarrow \frac{\sigma_i^2}{\sigma_L^2}\alpha, \\
@@ -298,41 +299,49 @@ p_{\theta}(\x_{t-1}|\x_t) = \N(\x_{t-1}| \mu_{\theta}(\x_t,t), \sigma_q^2(t)\mat
 \end{split}
 \label{sgm:annealed_langevin}
 \end{align}
-退火朗之万动力学从$1$到$L$依次选择每个噪声尺度，利用(\ref{sgm:annealed_langevin})中第一行设置与噪声尺度的平方成正比的步长$\alpha_i$；对每个噪声尺度，利用(\ref{sgm:annealed_langevin})中第二行进行若干轮迭代式采样。与使用单一噪声的朗之万动力学不同，退火朗之万动力学在采样中逐渐降低噪声尺度。\cite{song2019generative}指出通过这种方式，可以迫使采样过程跨过低维流形之间的低密度区域，产生更符合真实数据分布的样本。
+该方法依次从大到小遍历所有噪声尺度：首先根据(\ref{sgm:annealed_langevin})第一行设置与$\sigma_i^2$成正比的步长$\alpha_i$，然后通过(\ref{sgm:annealed_langevin})第二行进行多步采样。与传统朗之万动力学相比，这种退火策略通过逐步降低噪声尺度，能够有效引导采样过程跨越分布间的低密度区域，从而生成更高质量的样本\cite{song2019generative}。
 
-当我们比较DDPM的目标函数(\ref{ddpm:loss_vlb_denoise})和SGM的目标函数(\ref{sgm:ncsn})时，我们可以发现实际上当设置DDPM中的$\epsilon_{\theta}(\x,t)$和SGM中的$\s_\theta(\x,\sigma)$在功能上是一致的，在输出上也仅相差一个常系数。我们将在下一节从另一个视角揭示这两大类方法的内在联系。
+值得注意的是，对比DDPM的目标函数(\ref{ddpm:loss_vlb_denoise})与SGM的目标函数(\ref{sgm:ncsn})可以发现，DDPM中的$\epsilon_{\theta}(\x,t)$和SGM中的$\s_\theta(\x,\sigma)$在功能上是一致的，仅相差一个比例系数。我们将在下一节从理论角度深入分析这两类方法的内在联系。
 
 
 \subsection{随机微分方程 (Score SDE)}
 \label{subsection:sde}
 
-之前我们介绍的DDPM和SGM都是利用离散时间上的迭代关系式来刻画相邻时刻两个变量间的关系，实际上通过一些连续化技术和公式变化，它们都可以与连续时间上的微分方程（Differential Equation）建立联系。我们在本节首先介绍微分方程（包含常微分方程和随机微分方程）的定义，随后给出DDPM和SGM的随机微分方程形式表示。
+我们此前讨论的DDPM和SGM方法均采用离散时间框架下的迭代关系来描述相邻时刻变量间的转移过程。然而，通过适当的连续化技术及数学变换，这些方法均可与连续时间框架下的微分方程建立深刻联系。本节将首先介绍微分方程（包括常微分方程与随机微分方程）的基本概念，继而给出DDPM和SGM对应的随机微分方程表示。
 
 我们首先介绍常微分方程（Ordinary Differential Equation，ODE）和随机微分方程（Stochastic Differential Equation，SDE）的概念。我们先介绍ODE，一阶（first-order）ODE的数学表示如下：
 \begin{equation*}
     \frac{d\x(t)}{dt}=\f(t,\x),
 \end{equation*}
-其中$\f(t,\x)$是关于$t$和$\x$的函数。在后文中，我们主要使用ODE的微分形式（differential form）：
+其中$\f(t,\x)$是关于$t$和$\x$的确定性函数。在后续分析中，我们将主要采用其微分形式（differential form）：
 \begin{equation*}
     d\x=\f(t,\x)dt.
 \end{equation*}
+该形式更直观地反映了状态变量$\x$在无穷小时间间隔$dt$内的演化规律。
 
-SDE相比ODE多了一项刻画\emph{随机扰动}的项，具体地，其表达式如下：
+SDE在ODE基础上引入了\emph{随机扰动项}，其一般形式为：
 \begin{equation*}
     \frac{d\x(t)}{dt}=\f(t,\x) + \mathbf{g}(t,\x)\xi(t),\ \text{where}\ \xi(t)\sim\N(\mathbf{0},\mathbf{I}),
 \end{equation*}
-其中$\xi(t)$刻画了时间$t$的随机性。SDE的微分形式可以写成：
+其中$\xi(t)$表示标准高斯白噪声过程，刻画了时间$t$的随机性。SDE对应的微分形式可以写成：
 \begin{equation*}
     d\x=\f(t,\x)dt + \mathbf{g}(t,\x)d\w,
 \end{equation*}
-上面的$d\w=\xi(t)dt$是布朗运动（Brownian motion）的微分形式。
+上面的$d\w=\xi(t)dt$是布朗运动（Brownian motion，又称Wiener过程）的微分形式，其满足：
+\begin{equation*}
+\E[d\w] = \mathbf{0}, \quad \text{Cov}(d\w) = \mathbf{I}dt.
+\end{equation*}
+与确定性ODE不同，SDE中的$\mathbf{g}(t,\x)d\w$项刻画了随机扰动对系统演化的影响强度。
 
 下面我们介绍SDE视角下DDPM和SGM的前向与反向过程。我们首先分别定义通用的前向和反向过程的微分形式SDE，随后介绍DDPM和SGM具体对应的SDE。具体地，刻画前向过程的微分形式SDE如下：
 \begin{equation}
     d\x=\underbrace{\f(t,\x)}_{\text{漂移项}}dt + \underbrace{g(t)}_{\text{扩散项}}d\w,
 \label{sde:forward}
 \end{equation}
-其中$\xi(t)$对于所有时刻$t$均为独立同分布的高斯随机变量，$d\w=\xi(t)dt$是布朗运动的微分形式，直观上看，$\xi(t)$可以看成关于时间$t$的变化率，通过对$\xi(t)dt$进行积分即可得到$d\w$。函数$\f(t,\x)$和$g(t)$具有明确的物理含义，前者称为\emph{漂移项}，它定义了在封闭系统中，分子在没有随机效应时的确定性运动方式；后者称为\emph{扩散项}，它描述了分子如何通过布朗运动随机地从一个位置跃迁到另一个位置，该函数决定了随机运动的强度参数。
+其中$\xi(t)$对于所有时刻$t$均为独立同分布的高斯随机变量，$d\w=\xi(t)dt$是布朗运动的增量，其中$\xi(t)$可以看成布朗运动在时刻$t$的变化率。从积分的角度，布朗运动$\w(t)$正是通过对这些随机增量$\xi(t)dt$积分得到的。函数$\f(t,\x)$和$g(t)$具有明确的物理含义，前者称为\emph{漂移项}，它定义了在封闭系统中，分子在没有随机效应时的确定性运动方式；后者称为\emph{扩散项}，它描述了分子如何通过布朗运动随机地从一个位置跃迁到另一个位置，该函数决定了随机运动的强度参数。
+
+
+
 
 扩散模型的反向过程对应于在时间上反向演化，根据Anderson\cite{anderson1982reverse}的结论，(\ref{sde:forward})的反向时间SDE表述如下：
 \begin{equation}
@@ -347,6 +356,9 @@ Song等人\cite{song2019generative}证明了下面被称为概率流（probabili
 \label{ode:backward}
 \end{equation}
 反向时间SDE和概率流ODE都可以从同一数据分布中进行采样，因为它们的轨迹具有相同的边际分布特征。下面我们介绍DDPM和SGM的前向和反向SDE形式，概率流ODE形式由此可以很容易地推出（因为其由和反向时间SDE相同的$\f(t,\x)$，$g(t)$和$\nabla_\x\log p_t(\x)$定义），所以我们不展开阐述。
+
+
+
 
 下面我们结合(\ref{sde:forward})和(\ref{sde:backward})，给出DDPM和SGM前向和反向过程的SDE表达。首先由(\ref{ddpm:forward_process})中定义的DDPM前向过程的转移核$q(\x_t|\x_{t-1})$可知：
 \begin{equation*}
