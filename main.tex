@@ -307,7 +307,7 @@ p_{\theta}(\x_{t-1}|\x_t) = \N(\x_{t-1}| \mu_{\theta}(\x_t,t), \sigma_q^2(t)\mat
 \subsection{随机微分方程 (Score SDE)}
 \label{subsection:sde}
 
-我们此前讨论的DDPM和SGM方法均采用离散时间框架下的迭代关系来描述相邻时刻变量间的转移过程。然而，通过适当的连续化技术及数学变换，这些方法均可与连续时间框架下的微分方程建立深刻联系。本节将首先介绍微分方程（包括常微分方程与随机微分方程）的基本概念，继而给出DDPM和SGM对应的随机微分方程表示。
+我们此前讨论的DDPM和SGM方法均采用离散时间框架下的迭代关系来描述相邻时刻变量间的转移过程。在本节我们将看到，通过适当的连续化技术及数学变换，这些方法均可与连续时间框架下的微分方程建立深刻联系。我们将首先介绍微分方程（包括常微分方程与随机微分方程）的基本概念，继而给出DDPM和SGM对应的随机微分方程表示。
 
 我们首先介绍常微分方程（Ordinary Differential Equation，ODE）和随机微分方程（Stochastic Differential Equation，SDE）的概念。我们先介绍ODE，一阶（first-order）ODE的数学表示如下：
 \begin{equation*}
@@ -340,25 +340,19 @@ SDE在ODE基础上引入了\emph{随机扰动项}，其一般形式为：
 \end{equation}
 其中$\xi(t)$对于所有时刻$t$均为独立同分布的高斯随机变量，$d\w=\xi(t)dt$是布朗运动的增量，其中$\xi(t)$可以看成布朗运动在时刻$t$的变化率。从积分的角度，布朗运动$\w(t)$正是通过对这些随机增量$\xi(t)dt$积分得到的。函数$\f(t,\x)$和$g(t)$具有明确的物理含义，前者称为\emph{漂移项}，它定义了在封闭系统中，分子在没有随机效应时的确定性运动方式；后者称为\emph{扩散项}，它描述了分子如何通过布朗运动随机地从一个位置跃迁到另一个位置，该函数决定了随机运动的强度参数。
 
-
-
-
-扩散模型的反向过程对应于在时间上反向演化，根据Anderson\cite{anderson1982reverse}的结论，(\ref{sde:forward})的反向时间SDE表述如下：
+扩散模型的反向过程对应于前向SDE在时间上反向演化，根据Anderson\cite{anderson1982reverse}的结论，(\ref{sde:forward})的时间反演形式可表述为：
 \begin{equation}
     d\x= [\underbrace{\f(t,\x)}_{\text{漂移项}} - g(t)^2 \underbrace{\nabla_\x \log p_t(\x)}_{\text{分数函数}} ]dt + \underbrace{g(t)d\bar{\w}}_{\text{反向时间扩散项}},
 \label{sde:backward}
 \end{equation}
 其中$p_t(\x)$是$t$时刻$\x$的概率分布，$\bar{\w}$是时间反向演化时的维纳过程（Wiener process）。
 
-Song等人\cite{song2019generative}证明了下面被称为概率流（probability flow）ODE的轨迹与反向时间SDE具有相同的边际分布，其形式如下：
+Song等人\cite{song2019generative}创造性地建立了概率流ODE（probability flow ODE），其形式如下：
 \begin{equation}
     d\x= \left[\f(t,\x) -\frac{1}{2} g(t)^2\nabla_\x \log p_t(\x)\right]dt.
 \label{ode:backward}
 \end{equation}
-反向时间SDE和概率流ODE都可以从同一数据分布中进行采样，因为它们的轨迹具有相同的边际分布特征。下面我们介绍DDPM和SGM的前向和反向SDE形式，概率流ODE形式由此可以很容易地推出（因为其由和反向时间SDE相同的$\f(t,\x)$，$g(t)$和$\nabla_\x\log p_t(\x)$定义），所以我们不展开阐述。
-
-
-
+该确定性微分方程与反向时间SDE具有完全相同的边际分布特性。这一深刻联系意味着，概率流ODE和反向时间SDE均可作为从目标分布采样的有效途径。接下来我们将具体分析DDPM和SGM框架中的前向和反向SDE形式。由于概率流ODE可以直接由反向时间SDE的系数$\f(t,\x)$，$g(t)$和$\nabla_\x\log p_t(\x)$定义，其推导过程在此不再赘述。
 
 下面我们结合(\ref{sde:forward})和(\ref{sde:backward})，给出DDPM和SGM前向和反向过程的SDE表达。首先由(\ref{ddpm:forward_process})中定义的DDPM前向过程的转移核$q(\x_t|\x_{t-1})$可知：
 \begin{equation*}
@@ -369,7 +363,7 @@ Song等人\cite{song2019generative}证明了下面被称为概率流（probabili
 \begin{equation*}
     \x_i=\x(t+\Delta t),\ \x_{i-1}=\x(t),\ \z_i=\z(t+\Delta t),\ \z_{i-1}=\z(t),\ \beta_i = \beta(t+\Delta t)\Delta t,
 \end{equation*}
-其中$\Delta t$表示步长，$\beta(t+\Delta t)$是与噪声调度有关的系数。根据这些函数，我们可以推导DDPM的前向过程的SDE如下：
+其中$\Delta t$表示步长，$\beta(t)$为噪声调度函数。通过泰勒展开和极限分析，我们可以推导DDPM的前向过程的SDE如下：
 \begin{align*}
 \begin{split}
      \x_i &= \sqrt{1-\beta_i}\x_{i-1} + \sqrt{\beta_i}\z_{i-1} \\
@@ -378,7 +372,7 @@ Song等人\cite{song2019generative}证明了下面被称为概率流（probabili
     \Rightarrow\quad \x(t+\Delta t) &\approx \x(t) - \frac{1}{2}\beta(t)\Delta t\ \x(t) + \sqrt{ \beta(t)\Delta t}\ \z(t),
 \end{split}
 \end{align*}
-所以，当$\Delta t\rightarrow 0$时，我们便得到了DDPM前向过程的SDE的表达式：
+所以，当$\Delta t\rightarrow 0$时，我们便得到了DDPM前向过程的连续时间SDE的表达式：
 \begin{equation}
     d\x = -\frac{1}{2}\beta(t)\x dt + \sqrt{\beta(t)}d\w.
 \label{sde:ddpm_forward}
@@ -393,20 +387,22 @@ Song等人\cite{song2019generative}证明了下面被称为概率流（probabili
 \label{sde:ddpm_backward}
 \end{align}
 
-下面我们介绍SGM的前向和反向过程对应的SDE，这里我们关注重要的NCSN方法\cite{song2020score}，它使用不同的尺度的噪声生成一系列带噪声样本。由于NCSN使用退火朗之万动力学，即在反向生成过程中逐渐降低噪声，所以在前向过程中，我们可以设噪声逐渐增大。假设一共有$L$个不同的噪声尺度，记为$\sigma_1 > \sigma_2 > \cdots > \sigma_L > 0$。NCSN按照(\ref{sgm:ncsn_forward}在不同时刻向原始样本$\x_0$加入不同尺度的噪声，所以我们有：
+
+我们接下来推导基于分数的生成模型（SGM）的前向和反向SDE表示，重点分析噪声条件评分网络（NCSN）方法\cite{song2020score}。NCSN通过多尺度噪声扰动数据，采用退火朗之万动力学进行反向生成。考虑$L$个递减的噪声尺度$\sigma_1 > \sigma_2 > \cdots > \sigma_L > 0$，NCSN的前向过程按照(\ref{sgm:ncsn_forward})在数据$\x_0$上逐步添加高斯噪声实现，即：
 \begin{equation*}
     p(\x_i|\x_0) =\N(\x_i|\x_0,\sigma_i^2),\ p(\x_{i-1}|\x_0) =\N(\x_{i-1}|\x_0,\sigma_{i-1}^2).
 \end{equation*}
+
 下面我们建立$\x_i$与$\x_{i-1}$间的关系，首先这两个变量的均值相同，故它们之间的差值是一个均值为$\mathbf{0}$的高斯变量，记为$\u$，故有$\x_i=\x_{i-1}+\u$。此外，注意到$\x_{i-1}$和$\u$相互独立，故$\text{Var}[\x_i]=\text{Var}[\x_{i-1}]+\text{Var}[\u]$，所以有$\text{Var}[\u]=\text{Var}[\x_i]-\text{Var}[\x_{i-1}]=\sigma_i^2-\sigma_{i-1}^2$。综上所述，我们有：
 \begin{equation*}
     \x_i = \x_{i-1} + \sqrt{\sigma_i^2-\sigma_{i-1}^2} \z_{i-1},\ i=1,2,\cdots,L.
 \end{equation*}
 
-下面我们根据上式推导NCSN前向过程的SDE形式。针对$\x_i,\x_{i-1},\z_{i-1}$和$\sigma_i,\sigma_{i-1}$，我们使用与DDPM前向过程的SDE推导相同的连续函数形式，即
+随后我们根据上式来推导NCSN前向过程的连续时间SDE形式。针对$\x_i,\x_{i-1},\z_{i-1}$和$\sigma_i,\sigma_{i-1}$，我们使用与DDPM前向过程的SDE推导相同的连续函数形式，即
 \begin{equation*}
     \x_i=\x(t+\Delta t),\ \x_{i-1}=\x(t),\ \z_{i-1}=\z(t),\ \sigma_i = \sigma(t+\Delta t),\ \sigma_{i-1} = \sigma(t),
 \end{equation*}
-其中$\Delta t$表示步长。于是我们有：
+其中$\Delta t$表示步长，$\sigma(t)$是噪声调度函数。通过泰勒展开和极限分析，我们有：
 \begin{align*}
     \x_i &= \x_{i-1} + \sqrt{\sigma_i^2-\sigma_{i-1}^2}\ \z_{i-1} \\
     \Rightarrow\quad \x(t+\Delta t) &=\x(t) + \sqrt{\sigma(t+\Delta t) -\sigma(t)}\ \z(t) \\
@@ -426,7 +422,7 @@ Song等人\cite{song2019generative}证明了下面被称为概率流（probabili
 \label{sde:sgm_backward}
 \end{align}
 
-一旦我们能学到每个时刻$t$的分数函数$\nabla_\x\log p_t(\x)$，那么我们便可以由(\ref{sde:ddpm_backward})和(\ref{sde:sgm_backward})得到DDPM和SGM反向过程SDE或概率流ODE，并利用通过多种优化技术来求解它们以迭代式地生成样本。一般的SDE或ODE难有解析解，所以人们一般用数值方法求解，例如退火朗之万动力学\cite{song2019generative}、数值SDE求解器\cite{jolicoeur2021gotta,song2020score}、数值ODE求解器\cite{karras2022elucidating,lu2022dpm,song2020denoising,song2020score}以及预测器-校正器（predictor-corrector）方法（基于马尔可夫链的解析解与数值ODE/SDE求解器的数值解相结合）\cite{song2020score}。我们这里不再介绍这些技术的细节，感兴趣的读者可以参考相关文献。
+一旦我们能准确估计各时刻$t$的分数函数$\nabla_\x\log p_t(\x)$，便可以通过公式(\ref{sde:ddpm_backward})和(\ref{sde:sgm_backward})分别构建DDPM和SGM的反向过程SDE或概率流ODE。这些微分方程的解析解通常难以获得，因此在实际应用中主要依赖数值求解方法，例如退火朗之万动力学\cite{song2019generative}、数值SDE求解器\cite{jolicoeur2021gotta,song2020score}、数值ODE求解器\cite{karras2022elucidating,lu2022dpm,song2020denoising,song2020score}以及预测器-校正器（predictor-corrector）方法（结合马尔可夫链的解析解与数值ODE/SDE求解器）\cite{song2020score}，它们通过迭代方式逐步生成样本。关于这些技术的具体实现细节和比较分析，建议读者参阅相关文献。
 
 \subsection{条件生成的核心方法}
 
