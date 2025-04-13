@@ -24,7 +24,9 @@
 
 去噪扩散概率模型（Denoising Diffusion Probabilistic Model, DDPM）的核心框架基于两条相互关联的马尔可夫链：前向扩散链通过逐步添加噪声将原始数据分布扰动为简单的已知先验分布（如标准高斯分布），其中噪声调度通常采用预设的固定策略；而反向生成链则通过可学习的参数化转移核（transition kernel）实现噪声到数据的渐进式重建，该转移核一般由深度神经网络进行参数化建模，其本质是通过训练来逼近前向扩散过程的逆过程。在生成阶段，模型首先从先验分布中抽取随机噪声向量，随后通过反向链执行多步\emph{祖先采样}（ancestral sampling）\cite{koller2009probabilistic}——即每一步的采样都严格依赖于前一步的隐变量状态，这种序列化采样机制最终将噪声逐步转化为符合目标数据分布的新样本。
 
-下面我们给出去噪扩散概率模型（DDPM）的严格数学表述。设原始数据分布为$\x_0\sim q(\x_0)$，前向扩散过程定义为一个参数化的马尔可夫链，它通过转移核$q(\x_t|\x_{t-1})$生成隐变量序列（或称数据轨迹）$\{\x_0,\x_1,\cdots,\x_T\}$。根据马尔可夫性质，该过程的联合分布可分解为：
+\subsubsection{DDPM的前向与反向过程}
+
+下面我们给出去噪扩散概率模型（DDPM）前向与反向过程的数学表述。设原始数据分布为$\x_0\sim q(\x_0)$，前向扩散过程定义为一个参数化的马尔可夫链，它通过转移核$q(\x_t|\x_{t-1})$生成隐变量序列（或称数据轨迹）$\{\x_0,\x_1,\cdots,\x_T\}$。根据马尔可夫性质，该过程的联合分布可分解为：
 \begin{equation*}
     q(\x_1,\cdots,\x_T|\x_0)=\prod_{t=1}^T q(\x_t|\x_{t-1}).
 \end{equation*}
@@ -45,7 +47,6 @@
 \end{equation*}
 值得注意的是，当$T$足够大时，$\bar{\alpha}_T\approx 0$，使得边缘分布$q(\x_T)=\int q(\x_T|\x_0)q(\x_0)d\x_0$渐进收敛于标准高斯分布$\N(\mathbf{0},\mathbf{I})$，从而满足前向过程将数据完全扩散为噪声的设计目标。
 
-
 从直观上看，前向扩散过程通过逐步注入噪声使数据结构性信息持续衰减，最终退化为无结构噪声。为了实现数据生成，DDPM采用逆向思维：首先从先验分布$p(\x_T)=\N(\x_T;\mathbf{0},\mathbf{I})$采样纯噪声（该设定的合理性源于前向过程保证$q(\x_T) \approx \mathcal{N}(\x_T; \mathbf{0}, \mathbf{I})$），随后通过可学习的反向马尔可夫链逐步去噪重构数据。该反向链的核心是参数化转移核：
 \begin{equation*}
     p_{\theta}(\x_{t-1}|\x_t) = \N(\x_{t-1};\mu_{\theta}(\x_t,t),\Sigma_{\theta}(x_t,t)),
@@ -55,7 +56,9 @@
 \x_T \sim p(\x_T) \rightarrow \x_{T-1} \sim p_{\theta}(\x_{T-1}|\x_T) \rightarrow \cdots \rightarrow \x_0 \sim p_{\theta}(\x_0|\x_1)
 \end{equation*}
 
-现在我们详细介绍扩散模型的训练过程，即如何学习一个有效的反向条件分布$p_{\theta}(\x_{t-1}|\x_t)$。训练的核心思想是通过\emph{最大化数据对数似然的变分下界}（Evidence Lower Bound, ELBO）来实现。具体而言，给定数据样本$\x_0\sim q(\x_0)$，反向过程生成$\x_0$的对数似然为$\log p_{\theta}(\x_0)$，其变分下界推导如下：
+\subsubsection{DDPM的训练与推理}
+
+现在我们先详细介绍扩散模型的训练过程，即如何学习一个有效的反向条件分布$p_{\theta}(\x_{t-1}|\x_t)$。训练的核心思想是通过\emph{最大化数据对数似然的变分下界}（Evidence Lower Bound, ELBO）来实现。具体而言，给定数据样本$\x_0\sim q(\x_0)$，反向过程生成$\x_0$的对数似然为$\log p_{\theta}(\x_0)$，其变分下界推导如下：
 \begin{align}
 \begin{split}
     \log p_{\theta}(\x_0) &= \log \int p_{\theta}(\x_0,\cdots,\x_T)d\x_{1:T} \\
@@ -226,6 +229,12 @@ p_{\theta}(\x_{t-1}|\x_t) = \N(\x_{t-1}| \mu_{\theta}(\x_t,t), \sigma_q^2(t)\mat
 
 \subsection{基于分数的生成模型 (SGM)}
 
+本节将系统阐述基于分数的生成模型（Score-based Generative Models, SGM）的核心理论框架。首先，我们将从Stein分数函数（简称分数函数）的基本概念与数学定义入手，建立理论基础；随后，我们深入探讨分数函数匹配（Score Matching）这一主流学习范式的原理与实现方法；最后，重点介绍当前SGM领域的前沿方法——噪声条件分数网络（Noise Conditional Score Network, NCSN）。
+
+本节将介绍基于分数的生成模型（SGM）。我们首先介绍Stein分数函数（简称分数函数）的概念与定义，随后我们介绍分数函数匹配（score mathcing，即如何学习分数函数）的主流方法，最后我们介绍当前SGM的一种主流方法——噪声条件分数网络（Noise Conditional Score Network，NCSN）。
+
+\subsubsection{Stein分数函数}
+
 基于分数的生成模型的核心在于利用Stein分数函数（简称分数函数）\cite{Hyvrinen2005EstimationON}这一关键工具。对于给定的样本概率密度函数$p(\x)$，其Stein分数函数定义为对数概率密度的梯度场：
 \begin{equation*}
     \s_\theta(\x) := \nabla_{\x}\log p(\x).
@@ -239,6 +248,8 @@ p_{\theta}(\x_{t-1}|\x_t) = \N(\x_{t-1}| \mu_{\theta}(\x_t,t), \sigma_q^2(t)\mat
 当某些正则性条件被满足时，若$\alpha\rightarrow 0$且$T\rightarrow \infty$，\cite{max2011bayesian}的理论分析说明$\tilde{\x}_T$的分布将精确收敛于$p(\x)$。当$\alpha> 0$且$T< \infty$时上面的公式存在一些误差，需要用Metropolis-Hastings更新来修正，但在实践中通常可以忽略这种修正\cite{du2019implicit,nijkamp2019anatomy}。本文的后续分析将基于这一合理的工程假设展开。
 
 上述理论框架揭示了基于分数的生成模型的核心优势：通过建立分数函数估计与朗之万动力学采样之间的数学联系，实现了从数据分布中直接采样的可能性。这种方法的有效性主要依赖于两个关键因素——对目标分布分数函数的准确估计，以及朗之万动力学过程的合理配置。下面我们将围绕这两个核心要素展开深入探讨。
+
+\subsubsection{分数函数匹配}
 
 在分数函数学习方法的演进过程中，研究者们提出了多种技术路线。一种方法称为显式分数函数匹配（Explicit Score Matching，ESM）\cite{vincent2011connection}。假设我们有一个包含$M$个样本的数据集$\X=\{\x^{(1)},\cdots,\x^{(M)}\}$，那么我们可以通过\emph{核密度估计}来近似真实数据分布$p(\x)$：
 \begin{equation*}
@@ -276,6 +287,7 @@ p_{\theta}(\x_{t-1}|\x_t) = \N(\x_{t-1}| \mu_{\theta}(\x_t,t), \sigma_q^2(t)\mat
 \end{equation}
 可以看出，上面的目标函数的作用，就是训练分数函数$\s_\theta$，让其预测输入样本中的噪声（乘上系数$-1/\sigma$）。从物理视角理解，\emph{去除样本中的噪声本质上引导样本向数据分布的高概率区域移动}，这正是分数函数的定义。
 
+\subsubsection{噪声条件分数网络}
 
 尽管目标函数(\ref{sgm:dsm_obj})形式简洁且易于优化，但\cite{song2019generative}指出，由于真实世界数据常呈现低维流形分布，这会导致两个关键问题：其一，分数函数在一些区域可能无定义；其二，低密度区域的样本稀疏使得分数函数估计不准确。为解决这些问题，\cite{song2019generative}提出了噪声条件分数网络（Noise Conditional Score Network，NCSN）方法，其核心思想是通过多尺度高斯噪声扰动数据。具体而言，设$\sigma_1 > \sigma_2 > \cdots > \sigma_i > \cdots > \sigma_L > 0$是递减的$L$个不同的噪声尺度，通过以下方式构造带噪样本：
 \begin{equation}
