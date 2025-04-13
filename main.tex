@@ -533,7 +533,7 @@ CLIP（Contrastive Language-Image Pre-training）\cite{radford2021learning} 是�
 
 Song等人\cite{song2020score}提出了一种与前向过程同步的方式来离散化反向时间SDE，即对前向时间SDE的每一步离散化，都有其对应的反向时间SDE离散化。\cite{song2020score}证明了这种反向时间SDE离散化实际上是(\ref{sde:backward})的数值SDE求解器。Jolicoeur-Martineau等人\cite{jolicoeur2021gotta}开发了一种具有自适应步长的SDE求解器，以加快生成速度。具体地，在每个时间步，该方法使用一个高阶SDE求解器与一个低阶SDE求解器生成新样本，如果两个样本越相似，那么说明这步的难度越低，那么步长就相应地设置得越大。
 
-在物理动力学启发下，临界阻尼朗之万扩散（Critically-Damped Langevin Diffusion, CLD）\cite{dockhorn2021score}创新性地引入辅助速度变量构建增广状态空间。该方法设计的分数函数具有更平滑的扰动特性和更低的学习难度，配合定制的SDE积分器，在采样速度和质量上均取得显著提升。Song团队\cite{song2020score}提出的预测器-校正器框架则融合了数值SDE求解器（预测器）与马尔可夫链蒙特卡洛（MCMC）方法（校正器），该方法在每个时间步先用数值SDE求解器生成粗略样本，再利用MCMC校正器修正其边缘分布，确保样本在所有时间步与反向SDE解轨迹的分布一致。
+在物理动力学启发下，临界阻尼朗之万扩散（Critically-Damped Langevin Diffusion, CLD）\cite{dockhorn2021score}创新性地引入辅助速度变量构建增广状态空间。该方法设计的分数函数具有更平滑的扰动特性和更低的学习难度，配合定制的SDE积分器，在采样速度和质量上均取得显著提升。Song等人\cite{song2020score}提出的预测器-校正器框架则融合了数值SDE求解器（预测器）与马尔可夫链蒙特卡洛（MCMC）方法（校正器），该方法在每个时间步先用数值SDE求解器生成粗略样本，再利用MCMC校正器修正其边缘分布，确保样本在所有时间步与反向SDE解轨迹的分布一致。
 
 \subsubsection{基于概率流ODE的采样方法}
 
@@ -560,74 +560,46 @@ DDIM与DDPM的训练目标一致，都是训练模型$\epsilon_\theta(\x_t,t)$�
 
 \subsubsection{基于高阶ODE求解器的采样方法}
 
-针对概率流ODE的半线性结构特点，最新研究开发了定制化高阶求解器。Karras等人\cite{karras2022elucidating}提出的二阶Heun方法通过误差校正步骤提升离散精度，并创新性地引入随机朗之万扩散项，周期性将样本推回数据流形以平衡质量与速度。扩散指数积分器采样器\cite{zhang2022fast}和DPM-solver\cite{lu2022dpm}则充分利用ODE的线性-非线性分解特性，采用指数积分技术解析计算线性部分，仅在非线性部分进行网络评估。这种混合解析-数值方法将采样步数压缩至10-20步，较传统龙格-库塔方法效率提升近十倍。
+针对概率流ODE的半线性结构（即包含一个线性项和神经网络非线性项）特点，最新研究开发了定制化高阶求解器。Karras等人\cite{karras2022elucidating}提出的二阶Heun方法\cite{ascher1998computer}通过额外的校正步骤减少局部截断误差，在样本质量和采样速度之间取得了较好的权衡。此外，他们还创新性地在ODE求解中引入随机朗之万扩散项（包含分数函数和随机噪声），以将样本推回数据流形以平衡质量与速度。
 
+扩散指数积分器采样器\cite{zhang2022fast}和DPM-solver\cite{lu2022dpm}则充分利用ODE的线性-非线性分解特性，开发了专用ODE求解算法。相较于通用龙格-库塔方法，这些求解器对线性部分进行解析计算，并采用类指数积分器技术处理非线性项，其计算效率显著优于传统方法。实验表明，此类定制求解器仅需10-20次迭代即可生成高质量样本，而传统扩散模型通常需要数百次迭代才能达到同等效果，实现了数量级的速度提升。
 
-加速扩散模型采样的工作可以根据其是否需要在训练好的扩散模型基础上再进行训练分成两类：不需要训练（learning-free）的方法和需要训练（learning-based）的方法。正如我们在\ref{subsection:sde}节所介绍的，DDPM和SGM的反向过程实际上都可以看成各自反向时间SDE（即(\ref{sde:ddpm_backward})和(\ref{sde:sgm_backward})）的特定离散化。事实上，许多扩散模型采样器的设计都基于对(\ref{sde:backward})中的反向时间SDE或(\ref{ode:backward})中的概率流ODE进行离散化。为了有效降低采样步骤，许多方法聚焦于开发能够降低采样步数同时最小化离散误差的离散化方案。
-
-我们首先介绍对反向时间SDE进行离散化的主要进展。噪声条件分数网络（NCSN）\cite{song2019generative}提出的退火朗之万动力学（Annealed Langevin Dynamics，ALD）通过两重循环迭代生成数据，其中外循环不断递减噪声尺度（$\sigma_1>\sigma_2>\cdots>\sigma_L>0$），内循环在每个噪声尺度下执行若干次采样。这种做法的优势在于采样初期使用高噪声可以更好地探索全局信息，而后期使用低噪声让生成的数据平稳地收敛到原始数据分布。
-
-受统计力学启发，临界阻尼朗之万扩散（Critically-Damped Langevin Diffusion，CLD）\cite{dockhorn2021score}提出了一个带有辅助速度项的增广分数函数，并指出它实现了更平滑的数据扰动，并比传统扩散模型的分数函数学习难度更低。此外，CLD还包含一个高效的反向时间SDE积分器，提升采样速度与质量。
-
-Song等人\cite{song2020score}提出了一种与前向过程同步的方式来离散化反向时间SDE，即对前向时间SDE的每一步离散化，我们都有其对应的反向时间SDE离散化。\cite{song2020score}证明了这种反向时间SDE离散化实际上是(\ref{sde:backward})的数值SDE求解器。Jolicoeur-Martineau等人\cite{jolicoeur2021gotta}开发了一种具有自适应步长的SDE求解器，以加快生成速度。具体地，在每个时间步，该方法使用一个高阶SDE求解器与一个低阶SDE求解器生成新样本，如果两个样本越相似，那么说明这步的难度越低，那么步长就相应地设置得越大。Song等人\cite{song2020score}提出的预测器-校正器方法通过结合数值SDE求解器（预测器）和基于分数的MCMC方法（校正器）求解反向SDE。该方法在每个时间步先用数值SDE求解器生成粗略样本，再利用MCMC校正器修正其边缘分布，确保样本在所有时间步与反向SDE解轨迹的分布一致。
-
-
-大量关于更快扩散采样器的工作基于求解\ref{subsection:sde}节中介绍的概率流ODE(\ref{ode:backward})。与SDE求解器相比，ODE求解器的轨迹是确定性的，因此不受随机波动的影响。这些确定性ODE求解器通常比对应的SDE求解器收敛得更快，但代价是样本质量略有下降。去噪扩散隐式模型（Denoising Diffusion Implicit Model，DDIM）\cite{song2020denoising}是加速扩散模型采样的最早工作之一，它是对DDPM的改进，其核心思想是通过非马尔可夫（non-Markov）的扩散过程加速生成，同时保持与DDPM相同的目标函数。具体地，DDIM设计了如下非马尔可夫前向过程：
-\begin{equation*}
-    q(\x_1,\x_2,\cdots,\x_T|\x_0)=q(\x_T|\x_0)\Pi_{t=2}^T q(\x_{t-1}|\x_t,\x_0),
-\end{equation*}
-其中$q(\x_{t-1}|\x_t,\x_0)$为高斯分布，均值由$\x_t$和$\x_0$决定，它是非马尔可夫的。DDIM为了让前向过程的边缘分布与DDPM相同，即让$q(\x_t|\x_0)=\N(\sqrt{\alpha_t}\x_0,(1-\alpha_t)\mathbf{I})$并且$q(\x_{t-1}|\x_0)=\N(\sqrt{\alpha_{t-1}}\x_0,(1-\alpha_{t-1})\mathbf{I})$，推导出$q(\x_{t-1}|\x_t,\x_0)$的具体形式如下：
-\begin{equation*}
-    q(\x_{t-1}|\x_t,\x_0) = \N\left(\sqrt{\alpha_{t-1}}\x_0 + \sqrt{1-\alpha_{t-1}-\sigma_t^2}\cdot\frac{\x_t-\sqrt{\alpha_t}\x_0}{\sqrt{1-\alpha_t}},\sigma_t^2\mathbf{I} \right).
-\end{equation*}
-DDIM与DDPM的训练目标一致，都是训练模型$\epsilon_\theta(\x_t,t)$去预测第$t$个时间步$\x_t$中的噪声。DDIM在反向过程生成新样本时利用了$q(\x_{t-1}|\x_t,\x_0)$，首先通过训练好的$\epsilon_\theta(\x_t,t)$来得到$\x_0$的估计：
-\begin{equation*}
-    \x_t = \sqrt{\alpha_t}\x_0 + \sqrt{1-\alpha_t}\epsilon\quad \Rightarrow\quad \hat{\x}_0 = \frac{\x_t - \sqrt{1-\alpha_t}\epsilon_\theta(\x_t,t)}{\sqrt{\alpha_t}},
-\end{equation*}
-随后将$\hat{\x}_0$代入非马尔可夫的$q(\x_{t-1}|\x_t,\x_0)$，并设$\sigma_t=0$，于是有：
-\begin{equation*}
-    \x_{t-1}=\sqrt{\alpha_{t-1}} \hat{\x}_0 + \sqrt{1-\alpha_{t-1}}\epsilon_\theta(\x_t,t).
-\end{equation*}
-值得注意的是，此时反向过程完全由$\x_t$和$\epsilon_\theta$决定，无随机噪声注入。从本质上来看，DDIM的反向过程对应于概率流ODE的一种特殊离散化方案，无噪声使得ODE的求解误差增长较慢，所以可以使用较大的步长，因而降低了采样步数。此外，由于DDIM的非马尔可夫设计，\cite{song2020denoising}证明了在部分步骤上反向过程的生成分布与完整过程的分布近似一致，故DDIM在采样时可以跳过一些冗余中间步骤，这进一步降低采样步数。
-
-广义去噪扩散隐式模型（gDDIM）\cite{zhang2022gddim}提出通过分数函数网络的参数化方式，将DDIM推广到更一般的扩散模型中，例如模糊扩散模型（Blurring Diffusion Model，BDM）\cite{Hoogeboom2023blurring}和临界阻尼朗之万扩散（CLD）\cite{dockhorn2021score}等。PNDM\cite{liu2021pseudo}将扩散模型的逆向过程视为在$\mathbb{R}^N$中的特定流形上的微分方程求解问题，并提出一种伪数值方法使其在数据分布的高密度流形上生成样本，避免传统数值方法因偏离流形而导致的性能退化，DDIMs本质上是该方法的一种简单特例。
-
-Karras等人\cite{karras2022elucidating}为了提升概率流ODE的求解效率，采用Heun的二阶方法\cite{ascher1998computer}通过额外的校正步骤减少局部截断误差，在样本质量和采样速度之间取得了较好的权衡。虽然概率流ODE求解收敛更快，但生成的样本质量会有所下降。针对这个问题，Karras等人\cite{karras2022elucidating}提出一种用朗之万扩散项（分数函数+随机噪声）来“搅动”生成过程，即通过该项将样本推回真实数据流形，随后再使用ODE求解以降低噪声的算法。
-
-
-扩散指数积分器采样器（Diffusion Exponential Integrator Sampler）\cite{zhang2022fast}和DPM-solver\cite{lu2022dpm}利用概率流ODE的半线性结构（即包含一个线性项和神经网络非线性项）开发了定制的ODE求解器，比通用的龙格-库塔方法更高效。具体来说，概率流ODE的线性部分可以解析计算，而非线性部分可以用类似于ODE求解器领域中指数积分器的技术来解决。这些积分器可以在仅10到20次迭代中产生高质量样本，而没有加速采样的扩散模型通常需要的数百次迭代。
 
 \subsection{更精确的似然或密度估计}
 
-正如我们之前所介绍的，扩散模型的训练目标本质上是数据对数似然的变分下界，但该下界在很多情况下可能不够紧。本节我们介绍三大类让变分下界更紧的方法：噪声调度优化、反向方差学习和更精确的对数似然估计。
+扩散模型的训练目标本质上是数据对数似然的变分下界，然而该下界往往存在松弛性问题。研究表明，通过优化扩散过程中的噪声调度策略与反向过程的方差参数化方式，可以显著提升变分下界的紧致性。我们在本节将阐述几种该类型方法。
 
-我们之前介绍的扩散模型方法中的噪声调度方式通常是人们根据经验设置的。实际上，通过联合优化噪声调度方式与扩散模型中的其他参数，可以使扩散模型的变分下界更紧\cite{kingma2021variational,nichol2021improved}。
-
-iDDPM\cite{nichol2021improved}展示了使用下面的余弦调度方式可以提升对数似然。具体地，iDDPM提出(\ref{ddpm:bar_alpha})中的$\bar{\alpha}_t$的计算方式如下：
+传统扩散模型的噪声调度通常采用启发式设计。iDDPM\cite{nichol2021improved}提出了一种基于余弦函数的噪声调度策略，显著提升了模型的对数似然性能。具体地，该工作将(\ref{ddpm:bar_alpha})中的$\bar{\alpha}_t$定义为：
 \begin{equation*}
     \bar{\alpha}_t=\frac{f(t)}{f(0)},\ f(t)=\cos\left(\frac{t/T+s}{1+s}\cdot\frac{\pi}{2}\right)^2,
 \end{equation*}
-其中$s$是控制噪声尺度的超参数。(\ref{ddpm:forward_process})中的$\beta_t$可以按$\beta_t=1-\frac{\bar{\alpha}_t}{\bar{\alpha}_{t-1}}$进行计算。此外，iDDPM还提出了一种反向方差学习方法，它通过对在对数域的$\beta_t$和$\sigma_q^2(t)$（(\ref{ddpm:dist_of_reverse})中定义）进行参数化插值来参数化反向过程方差。具体地，我们将此可学习的反向方差记为$\Sigma_\theta(\x_t,t)$，扩散模型根据$\x_t$产生一个与$\beta_t$相同维度的向量$v$，并通过如下方式计算$\Sigma_\theta(\x_t,t)$替代(\ref{ddpm:dist_of_reverse})中的$\Sigma_q(t)$：
+其中$s$是控制噪声尺度的超参数，$T$表示总扩散步数。对应的前向过程方差$\beta_t$可通过$\beta_t=1-\frac{\bar{\alpha}_t}{\bar{\alpha}_{t-1}}$递推计算。此外，iDDPM还提出了一种基于对数域插值反向方差学习方法：
 \begin{equation*}
-    \Sigma_\theta(\x_t,t)=\exp (v\log\beta_t + (1-v)\log \sigma_q^2(t)).
+    \Sigma_\theta(\x_t,t)=\exp (v\log\beta_t + (1-v)\log \sigma_q^2(t)),
 \end{equation*}
+其中$v$为扩散模型根据$\x_t$产生一个与$\beta_t$相同维度的向量，$\sigma_q^2(t)$由(\ref{ddpm:dist_of_reverse})定义。该方法通过可学习的方差参数化，有效提升了变分下界的紧致性。
 
-变分扩散模型（Variational Diffusion Model，VDM）\cite{kingma2021variational}提出针对前向过程的边缘分布可以写成$q(\x_t|\x_0)=\N(\x_t;\alpha_t\x_0,\sigma_t^2\mathbf{I})$，可以看出DDPM的前向边缘分布(\ref{ddpm:bar_alpha})是其特殊形式，即将$\alpha_t$设为$\sqrt{1-\sigma_t^2}$，而NCSN的前向边缘分布(\ref{sgm:ncsn_forward})即为$\alpha_t=1$时的特殊形式。VDM进一步提出通过如下方式参数化$\sigma_t^2$：
+
+变分扩散模型（Variational Diffusion Model，VDM）\cite{kingma2021variational}通过引入广义参数化形式扩展了传统扩散模型的理论框架。该模型将前向过程的边缘分布定义为$q(\x_t|\x_0)=\N(\x_t;\alpha_t\x_0,\sigma_t^2\mathbf{I})$，其中参数$\alpha_t$控制信号衰减强度，$\sigma_t^2$决定噪声注入量。值得注意的是，DDPM的经典形式(\ref{ddpm:bar_alpha})可视为VDM在特定参数约束下的特例——当约束条件$\alpha_t=\sqrt{1-\sigma_t^2}$成立时，此时信噪比$\alpha_t^2/\sigma_t^2$单调递减；而NCSN的前向过程(\ref{sgm:ncsn_forward})即为$\alpha_t=1$时的特殊形式。VDM进一步提出通过如下方式参数化$\sigma_t^2$：
 \begin{equation*}
     \sigma_t^2=\text{sigmoid}(\gamma_\eta(t)),
 \end{equation*}
-其中$\gamma_\eta(t)$是参数为$\eta$的单调神经网络，它保证了$\x_t$的信噪比（\cite{kingma2021variational}定义为$\alpha_t^2/\sigma_t^2$）随时间单调递减。
+其中$\gamma_\eta(t)$是参数为$\eta$的单调神经网络，它保证了$\x_t$的信噪比随时间单调递减的特性，还为学习复杂噪声调度提供了可微分的参数空间。
 
-Analytic-DPM\cite{bao2021analytic}给出了扩散模型的最优反向方差可以直接通过预训练的分数函数解析求得，其表达式如下：
+在逆向过程优化方面，Analytic-DPM\cite{bao2021analytic}从变分原理出发推导出最优反向方差的解析表达式：
 \begin{equation*}
     \Sigma_\theta(\x_t,t)=\sigma_q^2(t) + \left(\sqrt{\frac{\bar{\beta}_t}{\alpha_t}} -\sqrt{\bar{\beta}_{t-1}-\sigma_q^2(t)} \right)^2\cdot \left(1-\bar{\beta}_t \E_{q(\x_t)}\frac{\|\nabla_{\x_t}\log q(\x_t) \|^2}{d} \right)
 \end{equation*}
 其中$\sigma_q^2(t)$由(\ref{ddpm:dist_of_reverse})定义，$\alpha_t=1-\beta_t$（$\beta_t$由(\ref{ddpm:forward_process})定义），
-$\bar{\beta}_t=1-\bar{\alpha}_t$（$\bar{\alpha}_t$由(\ref{ddpm:bar_alpha})定义），$q(\x_t)$是前向过程生成的$\x_t$的边缘分布，$d$是数据的维度。可以看出，给定预训练的分数模型后即可确定最优逆向方差，并且使用该最优方差可得到更紧致的变分下界估计。
+$\bar{\beta}_t=1-\bar{\alpha}_t$（$\bar{\alpha}_t$由(\ref{ddpm:bar_alpha})定义），$q(\x_t)$是前向过程生成的$\x_t$的边缘分布，$d$是数据的维度。该理论成果的核心价值在于给定预训练的分数模型后即可确定最优逆向方差，并且使用该最优方差可得到更紧致的变分下界估计。
+
 
 \subsection{流形上的高效扩散模型学习}
 
-传统的基于分数的生成模型（SGM）通常直接在数据空间（如像素空间）中应用，这导致采样时需要大量网络评估，计算成本高且效率低。潜在分数生成模型（Latent Score-Based Generative Model，LSGM）\cite{vahdat2021score}提出将SGM和变分自编码器（Variational Autoencoder，VAE）结合，VAE将原始数据映射到潜在空间中，SGM在该空间中使用，从而解决了传统SGM在计算效率和适用性上的局限性，同时保持了生成质量和分布覆盖能力。不同于联合训练VAE和扩散模型，潜在扩散模型（Latent Diffusion Model，LDM）\cite{rombach2022high}提出分阶段训练，即首先训练VAE来产生一个“感知等效”的低维表示空间，随后再在此空间中训练扩散模型。由于该方法的精巧设计，它能在有效降低计算复杂度的同时提升视觉保真度。
+传统的基于分数的生成模型（SGM）通常直接在数据空间（如像素空间）中应用，这导致采样时需要大量网络评估，计算成本高且效率低。潜在分数生成模型（Latent Score-Based Generative Model，LSGM）\cite{vahdat2021score}提出将SGM和变分自编码器（Variational Autoencoder，VAE）结合：通过VAE的编码器将高维数据映射至低维潜在空间，继而在此压缩空间进行SGM的训练和采样。该框架在保持原始SGM生成质量和概率分布覆盖能力的同时，显著提升了计算效率，有效平衡了模型性能与资源消耗。
+
+区别于LSGM的联合训练范式，潜在扩散模型（Latent Diffusion Model，LDM）\cite{rombach2022high}采用分阶段优化策略。其技术核心在于：首先独立训练具有感知等效特性的分层VAE，构建高度语义压缩的潜在表示空间；随后在此稳定收敛的潜在空间中训练扩散概率模型。这种解耦式训练架构不仅降低了模型优化难度，更重要的是通过建立“感知等效-语义压缩”的潜在空间，使得扩散过程能聚焦于本质特征学习，从而在图像生成任务中实现计算复杂度降低与视觉保真度提升的双重突破。
+
 
 
 
