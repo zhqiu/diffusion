@@ -321,6 +321,8 @@ p_{\theta}(\x_{t-1}|\x_t) = \N(\x_{t-1}| \mu_{\theta}(\x_t,t), \sigma_q^2(t)\mat
 
 我们此前讨论的DDPM和SGM方法均采用离散时间框架下的迭代关系来描述相邻时刻变量间的转移过程。在本节我们将看到，通过适当的连续化技术及数学变换，这些方法均可与连续时间框架下的微分方程建立深刻联系。我们将首先介绍微分方程（包括常微分方程与随机微分方程）的基本概念，继而给出DDPM和SGM对应的随机微分方程表示。
 
+\subsubsection{常微分方程与随机微分方程}
+
 我们首先介绍常微分方程（Ordinary Differential Equation，ODE）和随机微分方程（Stochastic Differential Equation，SDE）的概念。我们先介绍ODE，一阶（first-order）ODE的数学表示如下：
 \begin{equation*}
     \frac{d\x(t)}{dt}=\f(t,\x),
@@ -345,7 +347,9 @@ SDE在ODE基础上引入了\emph{随机扰动项}，其一般形式为：
 \end{equation*}
 与确定性ODE不同，SDE中的$\mathbf{g}(t,\x)d\w$项刻画了随机扰动对系统演化的影响强度。
 
-下面我们介绍SDE视角下DDPM和SGM的前向与反向过程。我们首先分别定义通用的前向和反向过程的微分形式SDE，随后介绍DDPM和SGM具体对应的SDE。具体地，刻画前向过程的微分形式SDE如下：
+\subsubsection{微分方程视角下的扩散模型}
+
+在介绍SDE视角下DDPM和SGM的前向与反向过程前，我们首先分别定义通用的前向和反向过程的微分形式SDE。具体地，刻画前向过程的微分形式SDE如下：
 \begin{equation}
     d\x=\underbrace{\f(t,\x)}_{\text{漂移项}}dt + \underbrace{g(t)}_{\text{扩散项}}d\w,
 \label{sde:forward}
@@ -366,7 +370,9 @@ Song等人\cite{song2019generative}创造性地建立了概率流ODE（probabili
 \end{equation}
 该确定性微分方程与反向时间SDE具有完全相同的边际分布特性。这一深刻联系意味着，概率流ODE和反向时间SDE均可作为从目标分布采样的有效途径。接下来我们将具体分析DDPM和SGM框架中的前向和反向SDE形式。由于概率流ODE可以直接由反向时间SDE的系数$\f(t,\x)$，$g(t)$和$\nabla_\x\log p_t(\x)$定义，其推导过程在此不再赘述。
 
-下面我们结合(\ref{sde:forward})和(\ref{sde:backward})，给出DDPM和SGM前向和反向过程的SDE表达。首先由(\ref{ddpm:forward_process})中定义的DDPM前向过程的转移核$q(\x_t|\x_{t-1})$可知：
+\subsubsection{DDPM的随机微分方程形式}
+
+下面我们结合(\ref{sde:forward})和(\ref{sde:backward})，给出DDPM的前向和反向过程的SDE表达。首先由(\ref{ddpm:forward_process})中定义的DDPM前向过程的转移核$q(\x_t|\x_{t-1})$可知：
 \begin{equation*}
     \x_i = \sqrt{1-\beta_i}\x_{i-1} + \sqrt{\beta_i}\z_{i-1},\ \z_{i-1}\sim\N(\mathbf{0},\mathbf{I}).
 \end{equation*}
@@ -399,6 +405,7 @@ Song等人\cite{song2019generative}创造性地建立了概率流ODE（probabili
 \label{sde:ddpm_backward}
 \end{align}
 
+\subsubsection{SGM的随机微分方程形式}
 
 我们接下来推导基于分数的生成模型（SGM）的前向和反向SDE表示，重点分析噪声条件评分网络（NCSN）方法\cite{song2020score}。NCSN通过多尺度噪声扰动数据，采用退火朗之万动力学进行反向生成。考虑$L$个递减的噪声尺度$\sigma_1 > \sigma_2 > \cdots > \sigma_L > 0$，NCSN的前向过程按照(\ref{sgm:ncsn_forward})在数据$\x_0$上逐步添加高斯噪声实现，即：
 \begin{equation*}
@@ -443,6 +450,7 @@ Song等人\cite{song2019generative}创造性地建立了概率流ODE（probabili
 
 为克服上述挑战，研究者提出通过引入外部引导机制（guidance）强化条件信号对生成路径的调控能力，其中最具代表性的方法包括\textbf{分类器引导}（Classifier Guidance）、\textbf{无分类器引导}（Classifier-Free Guidance）和\textbf{CLIP引导}（CLIP Guidance）。本节首先形式化条件扩散模型的反向过程，随后系统阐述三类引导方法的核心机制与实现差异。
 
+\subsubsection{条件扩散模型的反向过程}
 
 根据\cite{dhariwal2021diffusion}的理论框架，我们从DDPM视角形式化\textbf{条件反向过程}（conditional reverse process）。我们之前介绍了无条件的$p_{\theta}(\x_{t}|\x_{t+1})$的定义，当引入外部信息$y$时，条件生成分布可通过贝叶斯定理推导如下：
 \begin{align}
@@ -486,6 +494,8 @@ Song等人\cite{song2019generative}创造性地建立了概率流ODE（probabili
 \end{align}
 其中$C_2$，$C_3$和$C_4$都是与$\x_t$无关的常数。从(\ref{conditional:backward_gaussian})中我们可以看出$p_{\theta}(\x_{t}|\x_{t+1},y)$实际上服从高斯分布$\N(\mu+\Sigma g,\Sigma)$。下面我们三种常用的条件生成方法，它们实际上分别采用不同的方式来实现$p(y|\x_t)$。
 
+\subsubsection{分类器引导}
+
 分类器引导（Classifier Guidance）\cite{dhariwal2021diffusion}通过训练一个分类器$p_{\phi}(y|\x_t)$（$\phi$表示模型参数）来建模条件概率$p(y|\x_t)$，并利用其梯度信息修正扩散路径。具体而言，在条件反向过程中，扩散模型的均值$\mu_\theta(\x_t|y)$需要按(\ref{conditional:backward_gaussian})进行偏移：
 \begin{equation}
 \hat{\mu}_{\theta}(\x_t|y)=\mu_{\theta}(\x_t|y) + s\cdot\Sigma_\theta(\x_t|y)\cdot\nabla_{\x_t}\log p_{\phi}(y|\x_t),
@@ -493,8 +503,7 @@ Song等人\cite{song2019generative}创造性地建立了概率流ODE（probabili
 \end{equation}
 其中$s$是引导强度系数，$\Sigma_\theta(\x_t|y)$为预设的协方差矩阵。直观上，分类器引导通过$\nabla_{\x_t}\log p_{\phi}(y|\x_t)$项指示了增强条件相关性的更新方向。分类器引导虽然在实践中展示出来有效性，但是这种方法需要单独在噪声样本上训练分类器，这带来了额外的计算和存储开销，且在复杂条件（如长文本）下易受分类器精度限制。
 
-
-
+\subsubsection{无分类器引导}
 
 无分类器引导\cite{ho2022classifier}通过隐式地估计$p(y|\x_t)$来实现引导的目的，避免了显式分类器的训练需求。具体地，由贝叶斯定理，我们有：
 \begin{equation*}
@@ -517,6 +526,8 @@ Song等人\cite{song2019generative}创造性地建立了概率流ODE（probabili
 \end{equation}
 其中$s$是控制引导强度的超参数。无分类器引导具有两个显著优势。首先，它允许单个模型在直接利用自身习得的知识进行生成，而无需依赖另一个分类模型。其次，当需要基于难以通过分类器预测的信息（例如文本）进行条件生成时，这种引导方式能够显著简化条件控制流程。
 
+\subsubsection{CLIP引导}
+
 CLIP（Contrastive Language-Image Pre-training）\cite{radford2021learning} 是一种基于大规模图像-文本对训练的跨模态表示学习框架，其核心目标是通过对比学习对齐视觉与语言语义空间。模型由图像编码器$f(x)$和文本编码器$g(y)$构成，通过优化InfoNCE对比损失\cite{oord2018representation}：
 \begin{equation*}
 \mathcal{L}_{\text{CLIP}} = -\log \frac{\exp(f(x_i)\cdot g(y_i)/\tau)}{\sum_{j=1}^N \exp(f(x_i)\cdot g(y_j)/\tau)},
@@ -533,7 +544,7 @@ CLIP（Contrastive Language-Image Pre-training）\cite{radford2021learning} 是�
 
 \section{扩散模型后续改进}
 
-后续关于扩散模型的研究主要从三个方向改进经典方法（DDPMs、SGMs和Score SDEs）：（1）更快、更高效的采样；（2）更精确的似然与密度估计；（3）处理特殊结构数据（如具有排列不变性、流形结构和离散结构的数据）。我们将在接下来的分别对这些方向展开详细综述。
+后续关于扩散模型的研究主要从三个方向改进经典方法（DDPMs、SGMs和Score SDEs）：（1）更快、更高效的采样；（2）更精确的似然与密度估计；（3）处理常见的流形结构数据。我们将在接下来的分别对这些方向展开详细综述。
 
 \subsection{更快更高效的采样}
 
