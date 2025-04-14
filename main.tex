@@ -14,7 +14,7 @@
 \tableofcontents
 \newpage
 
-\section{扩散模型基础}
+\section{扩散模型数学基础}
 
 本文首先系统阐述扩散模型的基础理论框架，涵盖三大主流范式：去噪扩散概率模型（Denoising Diffusion Probabilistic Model，DDPM）\cite{sohldickstein2015diffusion,ho2020denoising}、基于分数的生成模型（Score-based Generative Model，SGM）\cite{song2019generative,song2020improved}以及随机微分方程（Stochastic Differential Equation，SDE）框架下的分数生成模型（Score SDE）\cite{song2020score,karras2022elucidating}。这些方法均基于“先扰动后生成”的核心思想：通过渐进式噪声注入构建前向扩散过程，再通过反向去噪过程实现数据生成。本节将依次详细描述三类扩散模型的前向反向机制，阐明其内在关联与相互转化关系，最后综述基于该理论框架的重要改进工作。
 
@@ -22,7 +22,7 @@
 
 \subsection{去噪扩散概率模型 (DDPM)}
 
-去噪扩散概率模型（Denoising Diffusion Probabilistic Model, DDPM）的核心框架基于两条相互关联的马尔可夫链：前向扩散链通过逐步添加噪声将原始数据分布扰动为简单的已知先验分布（如标准高斯分布），其中噪声调度通常采用预设的固定策略；而反向生成链则通过可学习的参数化转移核（transition kernel）实现噪声到数据的渐进式重建，该转移核一般由深度神经网络进行参数化建模，其本质是通过训练来逼近前向扩散过程的逆过程。在生成阶段，模型首先从先验分布中抽取随机噪声向量，随后通过反向链执行多步\emph{祖先采样}（ancestral sampling）\cite{koller2009probabilistic}——即每一步的采样都严格依赖于前一步的隐变量状态，这种序列化采样机制最终将噪声逐步转化为符合目标数据分布的新样本。
+去噪扩散概率模型（Denoising Diffusion Probabilistic Model, DDPM）的核心框架基于两条相互关联的马尔可夫链：前向扩散链通过逐步添加噪声将原始数据分布扰动为简单的已知先验分布（如标准高斯分布），其中噪声调度可采用预设的固定策略；而反向生成链则通过可学习的参数化转移核（transition kernel）实现噪声到数据的渐进式重建，该转移核一般由深度神经网络进行参数化建模，其本质是通过训练来逼近前向扩散过程的逆过程。在生成阶段，模型首先从先验分布中抽取随机噪声向量，随后通过反向链执行多步\emph{祖先采样}（ancestral sampling）\cite{koller2009probabilistic}——即每一步的采样都严格依赖于前一步的隐变量状态，这种序列化采样机制最终将噪声逐步转化为符合目标数据分布的新样本。
 
 \subsubsection{DDPM的前向与反向过程}
 
@@ -47,18 +47,20 @@
 \end{equation*}
 值得注意的是，当$T$足够大时，$\bar{\alpha}_T\approx 0$，使得边缘分布$q(\x_T)=\int q(\x_T|\x_0)q(\x_0)d\x_0$渐进收敛于标准高斯分布$\N(\mathbf{0},\mathbf{I})$，从而满足前向过程将数据完全扩散为噪声的设计目标。
 
-从直观上看，前向扩散过程通过逐步注入噪声使数据结构性信息持续衰减，最终退化为无结构噪声。为了实现数据生成，DDPM采用逆向思维：首先从先验分布$p(\x_T)=\N(\x_T;\mathbf{0},\mathbf{I})$采样纯噪声（该设定的合理性源于前向过程保证$q(\x_T) \approx \mathcal{N}(\x_T; \mathbf{0}, \mathbf{I})$），随后通过可学习的反向马尔可夫链逐步去噪重构数据。该反向链的核心是参数化转移核：
+从直观上看，前向扩散过程通过逐步注入噪声使数据结构性信息持续衰减，最终退化为无结构噪声。为了实现数据生成，DDPM首先从先验分布$p(\x_T)=\N(\x_T;\mathbf{0},\mathbf{I})$采样纯噪声（该设定的合理性源于前向过程保证$q(\x_T) \approx \mathcal{N}(\x_T; \mathbf{0}, \mathbf{I})$），随后通过可学习的反向马尔可夫链逐步去噪重构数据。该反向链的核心是参数化转移核：
 \begin{equation*}
     p_{\theta}(\x_{t-1}|\x_t) = \N(\x_{t-1};\mu_{\theta}(\x_t,t),\Sigma_{\theta}(x_t,t)),
 \end{equation*}
 其中$\theta$表示模型参数，高斯均值$\mu_{\theta}(\x_t,t)$和方差$\Sigma_{\theta}(x_t,t))$函数由深度神经网络进行参数化，并以带噪声的数据样本$\x_t$和时间$t$为输入。假设我们可以充分学习$p_{\theta}(\x_{t-1}|\x_t)$，那么便可以通过先从$p(\x_T)=\N(\x_T;\mathbf{0},\mathbf{I})$采样$\x_T$，再迭代式地调用$p_{\theta}(\x_{t-1}|\x_t)$（直到$t=1$）来生成样本$\x_0$。完整的生成流程可表述为：
 \begin{equation*}
-\x_T \sim p(\x_T) \rightarrow \x_{T-1} \sim p_{\theta}(\x_{T-1}|\x_T) \rightarrow \cdots \rightarrow \x_0 \sim p_{\theta}(\x_0|\x_1)
+\x_T \sim p(\x_T) \rightarrow \x_{T-1} \sim p_{\theta}(\x_{T-1}|\x_T) \rightarrow \cdots \rightarrow \x_0 \sim p_{\theta}(\x_0|\x_1).
 \end{equation*}
+我们将在下一节详细阐述如何通过数学推导和人为设计得到方便计算优化的$\mu_{\theta}(\x_t,t)$和$\Sigma_{\theta}(x_t,t))$。
+
 
 \subsubsection{DDPM的训练与推理}
 
-现在我们先详细介绍扩散模型的训练过程，即如何学习一个有效的反向条件分布$p_{\theta}(\x_{t-1}|\x_t)$。训练的核心思想是通过\emph{最大化数据对数似然的变分下界}（Evidence Lower Bound, ELBO）来实现。具体而言，给定数据样本$\x_0\sim q(\x_0)$，反向过程生成$\x_0$的对数似然为$\log p_{\theta}(\x_0)$，其变分下界推导如下：
+我们首先推导扩散模型的训练目标函数，即学习一个有效的反向条件分布$p_{\theta}(\x_{t-1}|\x_t)$。通过理论推导可以发现，该目标函数的具体形式将指导我们设计$p_{\theta}(\x_{t-1}|\x_t)$的参数化方式——具体而言，我们可以据此构造易于优化计算的均值函数$\mu_{\theta}(\x_t,t)$和方差函数$\Sigma_{\theta}(\x_t,t)$。从概率建模的角度，训练过程的核心在于通过最大化数据对数似然的变分下界（Evidence Lower Bound, ELBO）来实现模型优化。具体而言，给定数据样本$\x_0\sim q(\x_0)$，反向过程生成$\x_0$的对数似然为$\log p_{\theta}(\x_0)$，其变分下界推导如下：
 \begin{align}
 \begin{split}
     \log p_{\theta}(\x_0) &= \log \int p_{\theta}(\x_0,\cdots,\x_T)d\x_{1:T} \\
@@ -91,7 +93,7 @@
 \label{ddpm:3}
 \end{equation}
 
-当我们仔细观察上面的$\E_q[\text{KL}(q(\x_t|\x_{t-1}) \| p_{\theta}(\x_{t}|\x_{t+1}))]$项时，会发现该期望计算非常困难。具体来说，我们需要从分布$q(\x_{t-1},\x_{t+1}|\x_0)$中采样$\x_{t-1}$和$\x_{t+1}$来计算期望，而该分布的具体形式未知。为了解决这个问题，我们可以使用若干由$q$函数定义的前向转移函数\emph{模拟出}一个\emph{反向转移函数}来替代$q(\x_t|\x_{t-1})$，由于这个新的反向转移函数具有和$p_{\theta}(\x_t|\x_{t+1})$相同的方向，所以期望的计算可以大大简化。具体地，我们由Bayes定理，可得：
+当我们仔细观察上面的$\E_q[\text{KL}(q(\x_t|\x_{t-1}) \| p_{\theta}(\x_{t}|\x_{t+1}))]$项时，会发现该期望计算非常困难。具体来说，我们需要从分布$q(\x_{t-1},\x_{t+1}|\x_0)$中采样$\x_{t-1}$和$\x_{t+1}$来计算期望，而该分布的具体形式未知。为了解决这个问题，我们可以使用若干由$q$函数定义的前向转移函数\emph{模拟出}一个\emph{反向转移函数}来替代$q(\x_t|\x_{t-1})$，由于这个新的反向转移函数具有和$p_{\theta}(\x_t|\x_{t+1})$相同的方向，所以期望的计算可以大大简化。具体地，我们由贝叶斯定理，可得：
 \begin{equation*}
     q(\x_t|\x_{t-1})=\frac{q(\x_{t-1}|\x_t)q(\x_t)}{q(\x_{t-1})},
 \end{equation*}
@@ -230,8 +232,6 @@ p_{\theta}(\x_{t-1}|\x_t) = \N(\x_{t-1}| \mu_{\theta}(\x_t,t), \sigma_q^2(t)\mat
 \subsection{基于分数的生成模型 (SGM)}
 
 本节将系统阐述基于分数的生成模型（Score-based Generative Models, SGM）的核心理论框架。首先，我们将从Stein分数函数（简称分数函数）的基本概念与数学定义入手，建立理论基础；随后，我们深入探讨分数函数匹配（Score Matching）这一主流学习范式的原理与实现方法；最后，重点介绍当前SGM领域的前沿方法——噪声条件分数网络（Noise Conditional Score Network, NCSN）。
-
-本节将介绍基于分数的生成模型（SGM）。我们首先介绍Stein分数函数（简称分数函数）的概念与定义，随后我们介绍分数函数匹配（score mathcing，即如何学习分数函数）的主流方法，最后我们介绍当前SGM的一种主流方法——噪声条件分数网络（Noise Conditional Score Network，NCSN）。
 
 \subsubsection{Stein分数函数}
 
