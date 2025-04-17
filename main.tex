@@ -662,6 +662,8 @@ Genie\cite{dockhorn2022genie}，Bespoke solvers for generative flow models\cite{
 
 可以看出，修正流通过显式强制路径线性化，一方面保留了扩散模型的渐进生成特性，一方面又摆脱了之前扩散模型ODE对分数函数的依赖，实现了高效采样。
 
+SnapGen\cite{hu2024snapgen}和\cite{sauer2024fast}都使用了此训练方式。
+
 \subsubsection{对抗扩散蒸馏}
 
 利用对抗式学习的思想指导学生模型模仿教师模型的输出分布，强制让学生模型单步生成质量匹配多步教师模型生成质量。
