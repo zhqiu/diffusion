@@ -544,9 +544,20 @@ CLIP（Contrastive Language-Image Pre-training）\cite{radford2021learning} 是�
 
 \section{扩散模型后续改进}
 
-后续关于扩散模型的研究主要从三个方向改进经典方法（DDPMs、SGMs和Score SDEs）：（1）更快、更高效的采样；（2）更精确的似然与密度估计；（3）处理常见的流形结构数据。我们将在接下来的分别对这些方向展开详细综述。
+后续关于扩散模型的研究主要从三个方向改进经典方法（DDPMs、SGMs和Score SDEs）：（1）通过轨迹优化实现少步数生成（2）使用更快速的采样器；（3）进行精确的似然与密度估计；（4）处理常见的流形结构数据。我们将在接下来的分别对这些方向展开详细综述。
 
-\subsection{更快更高效的采样}
+\subsection{少步数生成的扩散模型范式}
+
+之前我们介绍的传统扩散模型因需要多步迭代去噪而导致延迟较高，下面我们将介绍修正流（Rectified Flow，RF）\cite{liu2022flow}、一致性模型（Consistency Model，CM）\cite{pmlr-v202-song23a}和隐空间一致性模型（Latent Consistency Model，LCM）\cite{luo2023latent}，它们通过约束或修正扩散轨迹的几何性质，简化从噪声到数据的映射路径，从而实现少步甚至一步生成。
+
+修正流（RF）——用SnapGen中的介绍
+
+一致性模型（CM）——用LCM中的介绍
+
+隐空间一致性模型（LCM）在一致性模型（CM）的基础上，将像素空间的一致性约束迁移到预训练扩散模型的隐空间（如Stable Diffusion的VAE隐空间），这样不仅大大提升了计算效率，而且LCM可复用预训练扩散模型的文本编码器（如CLIP），可以实现文本到图像的高效单步生成（如1～4步）。
+
+
+\subsection{更快速的采样器}
 
 扩散模型的采样加速技术可分为两类：无需额外训练的高效离散化方法（learning-free）和需要微调模型参数的训练优化方法（learning-based）。本文重点讨论基于数值求解随机微分方程（SDE）和常微分方程（ODE）的经典离散化方法，它们的核心在于对反向时间SDE或概率流ODE设计更高效的离散化方案，从而在保证生成质量的前提下显著降低采样步数。
 
@@ -623,6 +634,18 @@ $\bar{\beta}_t=1-\bar{\alpha}_t$（$\bar{\alpha}_t$由(\ref{ddpm:bar_alpha})定�
 
 区别于LSGM的联合训练范式，潜在扩散模型（Latent Diffusion Model，LDM）\cite{rombach2022high}采用分阶段优化策略。其技术核心在于：首先独立训练具有感知等效特性的分层VAE，构建高度语义压缩的潜在表示空间；随后在此稳定收敛的潜在空间中训练扩散概率模型。这种解耦式训练架构不仅降低了模型优化难度，更重要的是通过建立“感知等效-语义压缩”的潜在空间，使得扩散过程能聚焦于本质特征学习，从而在图像生成任务中实现计算复杂度降低与视觉保真度提升的双重突破。
 
+\section{大规模文生图模型}
+
+GLIDE
+
+Imagen
+
+DALLE-2
+
+SDMs
+
+基于去噪过程的扩散生成模型[10,23,80]通过逐步去除数据中的噪声，实现了高保真且多样化的合成效果。结合预训练语言模型[9,57,58]的突破性进展，文本生成图像（T2I）合成质量得到显著提升。GLIDE[51]和Imagen[70]采用文本条件扩散模型生成小尺寸图像，再通过超分辨率模块进行放大；DALL·E-2[59]则通过文本条件先验网络生成图像嵌入，经扩散解码器转换后进一步放大。稳定扩散模型（SDMs）[62,64-66]创新性地在像素空间自编码器构建的低维潜在空间进行扩散建模。本研究选择SDMs作为基线模型，因其开源特性及在下游任务[3,4,69,87]中的广泛应用优势。
+
 
 \section{扩散模型的加速}
 
@@ -632,7 +655,11 @@ $\bar{\beta}_t=1-\bar{\alpha}_t$（$\bar{\alpha}_t$由(\ref{ddpm:bar_alpha})定�
 
 \subsubsection{简化模型计算}
 
-削减冗余参数：EdgeFusion\cite{castells2024edgefusion}，Snapfusion\cite{li2023snapfusion}，Bitsfusion\cite{sui2024bitsfusion}，Mobilediffusion\cite{zhao2024mobilediffusion}
+BK-SDM（Block-removed Knowledge-distilled Stable Diffusion Model）是一种通过结构化剪枝与蒸馏训练协同优化的轻量化文本生成图像模型。其核心创新在于：1）基于敏感度分析定向剪除U-Net中冗余的残差-注意力模块对，在保持空间维度的前提下实现参数量减少30\%；2）采用多层级蒸馏损失函数（输出层+特征层对齐），使精简后的学生模型完美复现原始模型的去噪行为。该方法在三星NPU上实现了512×512图像的亚秒级生成，同时维持与完整模型相当的视觉质量。
+
+
+
+削减冗余参数：EdgeFusion\cite{castells2024edgefusion}，SnapFusion\cite{li2023snapfusion}，BitsFusion\cite{sui2024bitsfusion}，MobileDiffusion\cite{zhao2024mobilediffusion}
 
 SANA\cite{xie2024sana}和LinFusion\cite{liu2024linfusion}使用线性注意力\cite{cai2023efficientvit,dao2024transformers,katharopoulos2020transformers}
 
