@@ -550,7 +550,7 @@ CLIP（Contrastive Language-Image Pre-training）\cite{radford2021learning} 是�
 
 之前我们介绍的传统扩散模型因需要多步迭代去噪而导致延迟较高，下面我们将介绍修正流（Rectified Flow，RF）\cite{liu2022flow}、一致性模型（Consistency Model，CM）\cite{pmlr-v202-song23a}和隐空间一致性模型（Latent Consistency Model，LCM）\cite{luo2023latent}，它们通过约束或修正扩散轨迹的几何性质，简化从噪声到数据的映射路径，从而实现少步甚至一步生成。
 
-修正流（RF）是近年来扩散模型（Diffusion Models）领域的重要改进方法，旨在解决传统扩散模型训练和推理效率低下的问题。RF受到ODE和最优传输（Optimal Transport, OT）理论的启发，其核心目标是构建更“直”的传输路径，从而减少采样所需的步数，同时保持生成质量。具体地，RF将前向过程定义为连接数据分布与标准正态分布的直线路径，即：
+从SDE的角度，普通扩散模型由于反向过程中包含布朗运动项，所以从噪声到数据的路径是非线性的，故推理时需要较小的步长。修正流（RF）是近年来扩散模型（Diffusion Models）领域的重要改进方法，旨在解决传统扩散模型训练和推理效率低下的问题。RF受到ODE和最优传输（Optimal Transport, OT）理论的启发，其核心目标是构建更“直”的传输路径，这样就允许我们在生成时采用较大的步长而不发散，因而有效降低的采样迭代次数。具体地，RF将前向过程定义为连接数据分布与标准正态分布的直线路径，即：
 \begin{equation*}
     \x_t = (1-\sigma_t)\x_0 + \sigma_t\epsilon,
 \end{equation*}
@@ -558,10 +558,11 @@ CLIP（Contrastive Language-Image Pre-training）\cite{radford2021learning} 是�
 \begin{equation*}
     \mathcal{L}_{\text{task}} =\E_{\epsilon\sim\N(\mathbf{0},\mathbf{I}),t}\left[\|(\epsilon-\x_0) - v_\theta(\x_t,t)\|_2^2\right].
 \end{equation*}
-可以看出，该速度场实际上刻画的就是噪声$\epsilon$到图像$\x_0$的方向。为了提升训练稳定性，Liu等人\cite{liu2022flow}提出使用logit-normal采样策略采样$t$，它会以更高的概率采样中间步骤。
-
-
-
+可以看出，该速度场实际上刻画的就是噪声$\epsilon$到图像$\x_0$的方向。为了提升训练稳定性，Liu等人\cite{liu2022flow}提出使用logit-normal采样策略采样$t$，它会以更高的概率采样中间步骤。在推理阶段，RF采用Flow-Euler采样器，它基于学到的速度场来计算下个样本点：
+\begin{equation*}
+    \x_{t-1} = \x_t + (\sigma_{t-1} - \sigma_t)\cdot v_\theta(\x_t,t),
+\end{equation*}
+其中$v_\theta(\x_t,t)$可以看作步长。可以看出，修正流通过显式强制路径线性化并用速度场建模替代传统的扩散过程，一方面保留了扩散模型的渐进生成特性，一方面又摆脱了之前扩散模型ODE对分数函数的依赖，实现了高效采样。在采样时通常仅需10$\sim$20步即可达到高质量生成。
 
 
 一致性模型（CM）是一种能实现单步或少量步数生成的新型生成模型，其核心思想是学习一个一致性函数（consistency function），将概率流常微分方程（PF-ODE）轨迹上的任意点映射至该轨迹的起点（即PF-ODE的解、原始数据）。一致性函数被定义为$\f:(\
@@ -584,7 +585,7 @@ Song等人\cite{pmlr-v202-song23a}提出可以通过让上面的性质成立来�
 其中$\Phi$表示用于求解PF-ODE的单步ODE求解器，可以使用Euler求解器\cite{song2020score}或Heun求解器\cite{karras2022elucidating}。
 
 
-隐空间一致性模型（LCM）在一致性模型（CM）的基础上，将像素空间的一致性约束迁移到预训练扩散模型的隐空间（如Stable Diffusion的VAE隐空间），这样不仅大大提升了计算效率，而且LCM可复用预训练扩散模型的文本编码器（如CLIP），可以实现文本到图像的高效单步生成（如1～4步）。
+隐空间一致性模型（LCM）\cite{luo2023latent}在一致性模型（CM）的基础上，将像素空间的一致性约束迁移到预训练扩散模型的隐空间（如Stable Diffusion的VAE隐空间），这样不仅大大提升了计算效率，而且LCM可复用预训练扩散模型的文本编码器（如CLIP），可以实现文本到图像的高效单步生成（如1～4步）。
 
 
 \subsection{更快速的采样器}
@@ -687,11 +688,15 @@ SDMs
 
 BK-SDM（Block-removed Knowledge-distilled Stable Diffusion Model）是一种通过结构化剪枝与蒸馏训练协同优化的轻量化文本生成图像模型。其核心创新在于：1）基于敏感度分析定向剪除U-Net中冗余的残差-注意力模块对，在保持空间维度的前提下实现参数量减少30\%；2）采用多层级蒸馏损失函数（输出层+特征层对齐），使精简后的学生模型完美复现原始模型的去噪行为。该方法在三星NPU上实现了512×512图像的亚秒级生成，同时维持与完整模型相当的视觉质量。
 
+SnapGen\cite{hu2024snapgen}通过精简Transformer块和通道维度，并移除高分辨率阶段的自注意力，显著了降低计算量且提升了性能。同时，该方法采用扩展可分离卷积（Separable Convolution）\cite{howard2017mobilenets}和多查询注意力（Multi-Query Attention）\cite{shazeer2019fast}分别替代普通卷积和多头自注意力，进一步提升了模型效率。
 
-
-削减冗余参数：EdgeFusion\cite{castells2024edgefusion}，SnapFusion\cite{li2023snapfusion}，BitsFusion\cite{sui2024bitsfusion}，MobileDiffusion\cite{zhao2024mobilediffusion}
+削减冗余参数：SnapFusion\cite{li2023snapfusion}，BitsFusion\cite{sui2024bitsfusion}
 
 SANA\cite{xie2024sana}和LinFusion\cite{liu2024linfusion}使用线性注意力\cite{cai2023efficientvit,dao2024transformers,katharopoulos2020transformers}
+
+EdgeFusion\cite{castells2024edgefusion}提出了一种面向移动端的高效文本到图像生成框架，其创新性主要体现在三个关键技术维度。首先，该研究设计了一种两阶段知识蒸馏范式：第一阶段通过高质量教师模型优化轻量级学生模型，第二阶段结合潜在一致性模型(LCM)\cite{luo2023latent}进行微调，实现了仅需2-4步推理即可生成高质量图像的突破，在保持生成质量的同时显著提升了推理效率。其次，针对训练数据质量这一核心问题，研究团队创新性地采用GPT-4生成的文本描述与SDXL合成的图像构建高质量训练数据集，这一策略不仅提升了文本-图像语义对齐的准确性，还显著降低了传统LAION数据集存在的噪声干扰。最后，在硬件适配方面，研究提出了一套针对NPU的优化方案，包括创新的模型分块技术以优化内存访问效率、混合精度量化策略以平衡计算精度与效率，以及算子融合等加速技术。这些技术的协同创新使EdgeFusion成为首个能在移动设备上实现实时高质量图像生成的端到端解决方案。
+
+MobileDiffusion\cite{zhao2024mobilediffusion}在网络架构设计上实现了显著的轻量化改进，其核心创新体现在层次化的结构优化策略。该模型在低分辨率特征层采用 Transformer模块以增强全局表征能力，同时在高分辨率层部署深度可分离卷积来降低计算复杂度。通过引入共享键值投影机制和解耦的自注意力/交叉注意力结构，有效减少了注意力模块的参数规模和计算延迟。进一步的优化包括采用Swish激活函数替代传统GELU，以及通过残差块剪枝实现模型压缩，最终在将参数量控制在0.4B以内的同时，仍保持了与Stable Diffusion v1.5相当的图像生成质量。
 
 \subsubsection{通过知识蒸馏获得小模型}
 
@@ -704,7 +709,10 @@ SANA\cite{xie2024sana}和LinFusion\cite{liu2024linfusion}使用线性注意力\c
 
 \subsubsection{底层计算加速}
 
-\cite{chen2023speed}
+Chen等人\cite{chen2023speed}针对移动端GPU优化了大扩散模型的计算流程，通过算子融合（如合并Group Normalization\cite{wu2018group}和GELU\cite{hendrycks2016gaussian}）减少内核启动开销，同时采用部分softmax融合和FlashAttention\cite{dao2022flashattention}的方式改进注意力机制以提升内存带宽利用率。此外，他们应用Winograd算法\cite{alam2022winograd}优化UNet中的卷积计算，在计算效率和内存占用之间取得了良好平衡。
+
+
+
 
 \subsection{降低推理时迭代次数}
 
@@ -714,12 +722,12 @@ Genie\cite{dockhorn2022genie}，Bespoke solvers for generative flow models\cite{
 
 \subsubsection{修正流训练}
 
-从SDE的角度，普通扩散模型由于反向过程中包含布朗运动项，所以从噪声到数据的路径是非线性的，故推理时需要较小的步长。修正流（Rectified Flow）\cite{liu2022flow}通过线性插值重构扩散路径，让噪声到数据的轨迹接近直线，这样就允许我们在生成时采用较大的步长而不发散，因而有效降低的采样迭代次数。其具体数学表述如下：
+修正流（Rectified Flow，RF）通过将复杂的数据分布变换建模为直线化的概率流路径，将原本非线性的转换过程简化为高效的线性插值。这种设计显著提升了生成模型的训练效率，同时支持极少的采样步数（如1-2步）即可完成高质量生成，大幅降低了计算开销。得益于其可逆的线性路径设计，RF在保证生成质量的同时，还实现了更稳定的训练过程。目前，这一创新方法已被多个前沿工作采纳，成为提升生成模型效率的重要技术路线。
 
+SnapGen\cite{hu2024snapgen}采用基于修正流的训练策略，有效提升了模型训练的稳定性并实现了少步高质量生成。该方法还结合了输出蒸馏和跨架构特征蒸馏，实现了从大模型到轻量化架构的高效知识迁移。此外，通过时间步感知的动态损失加权机制，模型能够根据不同时间步的各损失项的大小自适应调整各项的权重，从而在显著提升生成质量的同时，保持了模型的轻量化优势。
 
-可以看出，修正流通过显式强制路径线性化，一方面保留了扩散模型的渐进生成特性，一方面又摆脱了之前扩散模型ODE对分数函数的依赖，实现了高效采样。
+LADD\cite{sauer2024fast}在修正流框架基础上进行了三项关键改进：首先，它在潜在空间进行对抗蒸馏，避免了像素空间的复杂计算，显著提升了高分辨率图像合成的效率；其次，该方法设计了动态噪声感知判别器，利用预训练扩散模型的多尺度生成特征作为判别依据，通过噪声水平动态调节监督强度，从而更好地保留图像细节；最后，LADD采用纯对抗训练范式，摒弃了传统蒸馏损失，大幅简化了优化流程。这些创新使得LADD仅需4步采样就能生成高质量、多比例的高清图像。
 
-SnapGen\cite{hu2024snapgen}和\cite{sauer2024fast}都使用了此训练方式。
 
 \subsubsection{对抗扩散蒸馏}
 
@@ -729,7 +737,13 @@ diffusion-GAN formulation\cite{wang2022diffusion,xiao2021tackling,xu2024semi}
 
 UFOGen\cite{xu2024ufogen}，DMD2\cite{yin2024improved}
 
+UFOGen\cite{xu2024ufogen}旨在解决传统文本到图像扩散模型因多步迭代去噪导致的计算效率低下问题，其核心挑战在于ODE-based方法在少步数下难以维持生成质量\cite{xu2024semi}。为此，该研究提出了一种融合扩散模型与 GAN 的混合架构，通过重构训练目标实现单步高质量生成：一方面采用对抗性损失直接匹配噪声样本分布，替代传统 KL 散度优化；另一方面引入显式像素级重建损失，增强训练稳定性。
+
+MobileDiffusion\cite{zhao2024mobilediffusion}在UFOGen框架基础上进行了两项关键改进：首先，提出融合对抗损失与蒸馏损失的混合训练范式，在保证训练稳定性的同时实现了高质量单步生成；其次，提出了将单步生成模型与ControlNet、LoRA等扩展模块进行融合的方案，显著提升了模型的实用价值。这些改进使MobileDiffusion在保持UFOGen优势的基础上，提升了灵活性和计算效率。
+
 ADD\cite{sauer2024adversarial}，LADD\cite{sauer2024fast}
+
+SnapGen\cite{hu2024snapgen}参考了LADD方法，它以SD3.5-Large-Turbo为教师模型，通过步数蒸馏（Step Distillation）进一步提升采样效率。
 
 
 
