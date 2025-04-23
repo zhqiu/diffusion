@@ -667,15 +667,33 @@ $\bar{\beta}_t=1-\bar{\alpha}_t$（$\bar{\alpha}_t$由(\ref{ddpm:bar_alpha})定�
 
 \section{大规模文生图模型}
 
-GLIDE
+基于去噪过程的扩散生成模型\cite{song2019generative,song2020improved,ho2020denoising}通过逐步去除数据中的噪声，实现了高保真且多样化的合成效果。结合预训练语言模型\cite{raffel2020exploring,radford2021learning}的突破性进展，文本生成图像（T2I）合成质量得到显著提升。GLIDE\cite{pmlr-v162-nichol22a}和Imagen\cite{saharia2022photorealistic}采用以文本为条件的扩散模型先生成小尺寸图像，再通过超分辨率模块进行放大。DALL·E-2\cite{ramesh2022hierarchical}利用CLIP将文本编码为特征，再通过扩散模型生成对应的图像特征，最后用分层扩散模型合成高分辨率图像。
 
-Imagen
 
-DALLE-2
+稳定扩散模型（Stable Diffusion Models，SDMs）\cite{rombach2022high}是T2I合成领域最著名的开源模型之一，其卓越的生成能力已开始作为核心架构被应用于多项文本引导的视觉任务\cite{blattmann2023videoldm,brooks2023instructpix2pix,wang2023score,zhang2023adding}。SDMs本质上是专精于T2I的潜在扩散模型（LDMs）\cite{rombach2022high}，通过在语义压缩空间执行扩散过程\cite{ho2022classifier,liu2021pseudo,song2020denoising}来提升计算效率。该模型采用U-Net架构\cite{ronneberger2015u,dhariwal2021diffusion}对随机潜在编码进行迭代采样去噪，并配合文本编码器\cite{radford2021learning}与图像解码器\cite{esser2021taming,van2017neural}生成文本对齐的图像。
 
-SDMs
+\begin{figure}[htbp]
+    \centering
+    \begin{subfigure}[b]{0.49\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{img/SDM.jpg}
+        \caption{稳定扩散模型（SDM）的推理过程}
+        \label{fig:sdm}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.49\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{img/denoising-unet.jpg}
+        \caption{去噪UNet的网络结构}
+        \label{fig:unet}
+    \end{subfigure}
+    \caption{稳定扩散模型的推理与结构}
+    \label{fig:sdm&unet}
+\end{figure}
 
-基于去噪过程的扩散生成模型[10,23,80]通过逐步去除数据中的噪声，实现了高保真且多样化的合成效果。结合预训练语言模型[9,57,58]的突破性进展，文本生成图像（T2I）合成质量得到显著提升。GLIDE[51]和Imagen[70]采用文本条件扩散模型生成小尺寸图像，再通过超分辨率模块进行放大；DALL·E-2[59]则通过文本条件先验网络生成图像嵌入，经扩散解码器转换后进一步放大。稳定扩散模型（SDMs）[62,64-66]创新性地在像素空间自编码器构建的低维潜在空间进行扩散建模。本研究选择SDMs作为基线模型，因其开源特性及在下游任务[3,4,69,87]中的广泛应用优势。
+Stable Diffusion模型的推理过程如图\ref{fig:sdm}所示，主要包括了文语编码、噪声去除以及图像解码等步骤。首先，用户输入一段文本提示，该文本通过预训练的固定CLIP文本编码器（Text Encoder）进行编码，得到文本的embedding表征。同时，模型会从高斯分布$\N(\mathbf{0},\mathbf{I})$中采样得到随机噪声，并将时间步（$t\in\{0,1,\cdots,T\}$）的信息以embedding的形式输入，以便模型能够识别当前处于去噪过程的哪个阶段。上述三类信息（文本embedding、噪声图像、时间步embedding）一同输入到条件去噪UNet模型中。在去噪UNet中，模型会利用多轮迭代（共$T$次），逐步去除噪声并引入文本条件约束，不断生成更接近于目标空间的隐变量（latent）。最后，经过$T$次迭代的去噪后，获得最终的隐变量，随后通过VAE（变分自编码器）解码器将隐变量转换为实际的像素空间图像，从而生成符合用户提示语义的图像。整个生成流程实现了从文本描述到高质量合成图像的端到端生成。
+
+根据图\ref{fig:unet}所示，去噪UNet结构采用典型的U型架构，其在降采样与升采样路径上均集成了残差块（ResNet）与注意力机制（Attention）模块，以实现对跨层次特征的有效提取与融合。具体而言，首先将带噪声的隐变量输入至一系列ResNet模块，通过残差连接提升信息流动与特征表达能力。在降采样与升采样的关键阶段，模型进一步利用Attention模块，将全局相关性与局部特征相结合，从而更好地捕捉复杂结构。与此同时，条件信息embedding（如文本embedding）与时间步embedding贯穿UNet各个阶段，并被注入至每个ResNet与Attention模块中，用以调节特征变换过程，实现对生成内容与去噪进程的精准控制。此外，为了充分保留特征分辨率，降采样与升采样路径通过跨层连接将相应特征进行拼接，实现多尺度信息的融合。最终，UNet结构输出对噪声的预测结果，有效指导去噪过程。该架构不仅增强了模型的表达能力，也显著提升了条件生成任务中的细节还原与语义一致性。
 
 
 \section{扩散模型的加速}
