@@ -695,10 +695,43 @@ $\bar{\beta}_t=1-\bar{\alpha}_t$（$\bar{\alpha}_t$由(\ref{ddpm:bar_alpha})定�
 
 去噪UNet结构如图\ref{fig:unet}所示，它采用了经典的编码器-解码器设计，形成对称的U形结构，其核心由多层ResNet模块和注意力机制组成。该网络接收带噪声的隐变量作为输入，通过左侧编码器部分的ResNet和Attention模块进行特征提取和降采样，同时文本表征和时间步嵌入被输入到各层模块中提供上下文信息；在U形结构底部达到最深特征表示后，右侧解码器部分通过ResNet和Attention模块进行特征重建和上采样，而图中虚线表示的连接机制将编码器对应层的特征直接传递到解码器对应层，有效保留细节信息。整个计算流程形成了一个端到端的噪声预测网络，最终输出预测的噪声，这种结合条件信息和时间步信息的架构设计使得去噪UNet能够有效学习噪声分布特征，在扩散模型等领域展现出优异性能。
 
+在下面介绍SDM的主流加速方法之前，我们先系统剖析SDM各个步骤的计算特征、参数分布及延时特性，为后续讨论奠定基础。这里我们主要使用来自Li等人在\cite{li2023snapfusion}中呈现的结果。他们对Stable Diffusion v1.5（SD-v1.5）\footnote{https://huggingface.co/stable-diffusion-v1-5/stable-diffusion-v1-5}模型各层的参数量与计算量展开全面研究。这项深度分析有助于从网络架构与算法范式的角度，理解文生图扩散模型在移动设备上部署的核心瓶颈。
+
+
+\begin{figure}[htbp]
+    \centering
+    \begin{subfigure}[b]{0.49\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{img/sdv15_latency.jpg}
+        \caption{SD-v1.5模型中各模块在iPhone 14 Pro上的延时（ms）}
+        \label{fig:latency_three}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.49\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{img/unet_latency_params.jpg}
+        \caption{SD-v1.5中去噪UNet各层在iPhone 14 Pro上的延时（ms）和参数量（M）比较}
+        \label{fig:latency_params_unet}
+    \end{subfigure}
+    \caption{SD-v1.5的延时与参数量分析}
+    \label{fig:sd_v15}
+\end{figure}
+
+正如图\ref{fig:sdm}所展示的那样，SDM主要包含三个主要模块：文本编码器、去噪UNet和VAE解码器。图\ref{fig:latency_three}展示了这三个模块各自的参数量和延时。SD-v1.5中文本编码器是ViT-H模型\cite{radford2021learning}。由于该文生图模型采用无分类器引导，所以由(\ref{conditional_classifier_free_guided})可知，该文本编码器在生成每张图片时执行2次（一次输入为文本提示词输出条件表征，一次输入空串输出无条件表征），该部分仅占推理延迟的极小一部分（8毫秒）。VAE解码器负责将潜在特征生成图像，运行时延为369毫秒。与前两者不同的是，去噪UNet计算量极大（单步延迟为1.7秒），并且需要多次迭代前向传播以保证生成质量。
+
+下面我们对去噪UNet的内部结构进行解析。该网络的内部结构如图\ref{fig:unet}所示，网络的核心是（交叉）注意力模块和ResNet模块。交叉注意力模块的作用是在每个阶段将文本信息融合到图像信息中，具体计算方式为：
+\begin{equation*}
+    \text{Cross-Attention}(Q_{\z_t},K_{\c},V_{\c})=\text{Softmax}\left(\frac{Q_{\z_t}\cdot K_{\c}^{\top}}{\sqrt{d}}\right)\cdot V_{\c},
+\end{equation*}
+其中$Q_{\z_t}$投影自噪声数据$\z_t$，$K_{\c}$和$V_{\c}$投影自文本信息$\c$，$d$是特征维度。ResNet模块在UNet中用于捕捉局部空间特征。ResNet与交叉注意力的结合，正是扩散模型兼顾全局语义与局部真实性的关键设计。图\ref{fig:latency_params_unet}对比了该网络各层的延时与参数量，可以看出参数主要集中在UNet中段，这是由于通道维度的扩展所致，其中ResNet块占据了绝大部分比例。相比之下，UNet中速度最慢的部分是输入和输出阶段，这些层级具有最大的特征分辨率，因为空间交叉注意力的计算复杂度与特征尺寸（在ViT中被量化为token数量）呈平方关系。
+
+
+
+
 
 \section{扩散模型的加速}
 
-在本节中，我们将深入分析基于广泛应用的扩散模型(SDM)的主流加速方法。首先，我们将系统剖析SDM各个步骤的计算特征、参数分布及延时特性，为后续讨论奠定基础。随后，我们将从五个关键维度展开论述：\textbf{精简网络架构设计}、\textbf{网络参数量化技术}、\textbf{知识蒸馏到小模型}、\textbf{推理过程加速策略}以及\textbf{底层计算优化方法}。通过这些维度的综合分析，我们将全面呈现当前扩散模型推理加速的核心技术体系及其发展趋势。
+在本节中，我们将深入分析基于广泛应用的扩散模型(SDM)的主流加速方法。具体地，我们将从五个关键维度展开论述：\textbf{精简网络架构设计}、\textbf{网络参数量化技术}、\textbf{知识蒸馏到小模型}、\textbf{推理过程加速策略}以及\textbf{底层计算优化方法}。通过这些维度的综合分析，我们将全面呈现当前扩散模型推理加速的核心技术体系及其发展趋势。
 
 \subsection{优化模型结构与计算}
 
