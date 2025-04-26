@@ -728,11 +728,7 @@ $\bar{\beta}_t=1-\bar{\alpha}_t$（$\bar{\alpha}_t$由(\ref{ddpm:bar_alpha})定�
 
 \section{扩散模型的加速}
 
-在本节中，我们将深入分析基于广泛应用的扩散模型(SDM)的主流加速方法。具体地，我们将从五个关键维度展开论述：\textbf{精简网络架构设计}、\textbf{网络参数量化技术}、\textbf{知识蒸馏到小模型}、\textbf{推理过程加速策略}以及\textbf{底层计算优化方法}。通过这些维度的综合分析，我们将全面呈现当前扩散模型推理加速的核心技术体系及其发展趋势。
-
-\subsection{精简网络架构设计}
-
-设计高效架构 + 网络剪枝\cite{li2023snapfusion,kim2023architectural,zhao2024mobilediffusion}
+在本节中，我们将深入分析基于广泛应用的扩散模型(SDM)的主流加速方法。首先，我们将介绍\textbf{网络参数量化技术}，这类方法在不显著修改网络架构的前提下，有效降低了计算内存和存储需求。随后，我们探讨多种\textbf{精简网络架构设计}的工作，它们通过不同策略简化网络结构以提高效率。由于修改网络架构后通常需要对模型进行微调，我们进而分析主流的\textbf{知识蒸馏与步数蒸馏}技术，其中知识蒸馏使小模型能够快速掌握大模型的能力，而步数蒸馏则大幅加速推理过程。最后，我们考察各种\textbf{底层计算优化方法}，这些方法从硬件系统层面对扩散模型中的计算过程进行优化，进一步提升性能。
 
 \subsection{网络参数量化技术}
 
@@ -746,9 +742,25 @@ $\bar{\beta}_t=1-\bar{\alpha}_t$（$\bar{\alpha}_t$由(\ref{ddpm:bar_alpha})定�
 
 【这里可以加一张表，每行表示一种方法，可以分PTQ和QAT两大类；每列表示该方法的一种属性，比如方法被提出的时间、量化比特宽度（随不同方法下降所能保持的模型质量，如4/8bit等）、推理效率、生成质量、部署便利、关键技术等】
 
-\subsection{知识蒸馏到小模型}
+\subsection{精简网络架构设计}
 
-\subsection{推理过程加速策略}
+设计高效架构 + 网络剪枝\cite{li2023snapfusion,kim2023architectural,zhao2024mobilediffusion}
+
+
+\subsection{知识蒸馏与步数蒸馏}
+
+渐进式蒸馏：
+
+Progressive Distillation\cite{salimans2021progressive}：
+
+On Distillation of Guided Diffusion Models\cite{meng2022distillation}：
+
+以约束扩散轨迹性质的扩散模型范式为训练目标的步数蒸馏：RF，CM，LCM
+
+结合对抗学习的步数蒸馏：ADD，LADD，UFOGen，SDXL-lighting
+
+基于分布匹配的步数蒸馏：DMD，DMD2
+
 
 \subsection{底层计算优化方法}
 
