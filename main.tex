@@ -547,6 +547,7 @@ CLIP（Contrastive Language-Image Pre-training）\cite{radford2021learning} 是�
 后续关于扩散模型的研究主要从三个方向改进经典方法（DDPMs、SGMs和Score SDEs）：（1）通过轨迹优化实现少步数生成（2）使用更快速的采样器；（3）进行精确的似然与密度估计；（4）处理常见的流形结构数据。我们将在接下来的分别对这些方向展开详细综述。
 
 \subsection{少量步数生成的扩散模型范式}
+\label{sec:rf_cm_lcm}
 
 之前我们介绍的传统扩散模型因需要多步迭代去噪而导致延迟较高，下面我们将介绍修正流（Rectified Flow，RF）\cite{liu2022flow}、一致性模型（Consistency Model，CM）\cite{pmlr-v202-song23a}和隐空间一致性模型（Latent Consistency Model，LCM）\cite{luo2023latent}，它们通过约束或修正扩散轨迹的几何性质，简化从噪声到数据的映射路径，从而实现少步甚至一步生成。
 
@@ -749,17 +750,22 @@ $\bar{\beta}_t=1-\bar{\alpha}_t$（$\bar{\alpha}_t$由(\ref{ddpm:bar_alpha})定�
 
 \subsection{知识蒸馏与步数蒸馏}
 
-渐进式蒸馏：
+\textbf{渐进式蒸馏}： Salimans等人\cite{salimans2021progressive}提出的渐进式蒸馏（Progressive Distillation）框架通过迭代式知识迁移实现扩散模型的高效采样。该方法采用多阶段蒸馏策略：首先训练一个$N$步采样的基准模型作为教师模型，然后构建$N/2$步学生模型，通过最小化学生单步预测与教师两步预测的误差实现知识迁移。在迭代过程中，前轮学生模型作为新教师继续蒸馏更精简的模型，整个过程采用确定性DDIM\cite{song2020denoising}采样和特殊参数化方法确保稳定性，最终仅需4-8步即可达到原始模型数千步的采样质量。Meng等人\cite{meng2022distillation}针对无分类器引导（classifier-free guided）扩散模型，提出了一种两阶段蒸馏方法：第一阶段让学生模型学习教师模型的有条件与无条件加权输出，将教师模型多步计算压缩为单步的高效计算，并通过随机引导强度训练实现单一模型对多种引导强度的灵活适配。第二阶段采用渐进式蒸馏\cite{salimans2021progressive}将模型进一步压缩至1-4步采样，在保持生成质量的同时实现10-256倍加速。
 
-Progressive Distillation\cite{salimans2021progressive}：
+\textbf{约束扩散轨迹的步数蒸馏}：在\ref{sec:rf_cm_lcm}小节中，我们系统性地介绍了三种基于轨迹优化的新型扩散模型范式：修正流（Rectified Flow, RF）\cite{liu2022flow}、一致性模型（Consistency Model, CM）\cite{pmlr-v202-song23a}和隐空间一致性模型（Latent Consistency Model, LCM）\cite{luo2023latent}。这些方法的共同特征是通过对扩散轨迹的几何性质进行约束或修正，显著简化了从噪声空间到数据空间的映射路径，从而实现了少步甚至单步的高效生成。值得注意的是，这些方法不仅可以独立构建生成模型，还能够作为有效的蒸馏框架，用于让预训练扩散模型具备的高效推理能力。
 
-On Distillation of Guided Diffusion Models\cite{meng2022distillation}：
+具体而言，修正流（RF）采用线性路径连接数据分布与噪声分布，通过速度场直接建模噪声到数据的确定性位移关系。该方法通过Flow-Euler采样器实现10-20步的高效生成，其核心优势在于摆脱了传统扩散模型对分数函数的依赖。一致性模型（CM）则提出了更具突破性的解决方案，其通过构建一致性函数将概率流ODE轨迹上的任意点直接映射至轨迹起点，并利用自一致性约束保证相邻时间步输出的稳定性，从而实现了单步生成的突破性进展。进一步地，隐空间一致性模型（LCM）通过将CM的一致性约束迁移到预训练扩散模型的隐空间，不仅保留了CM的高效生成特性，还显著降低了计算成本，为实际应用提供了更可行的解决方案。
 
-以约束扩散轨迹性质的扩散模型范式为训练目标的步数蒸馏：RF，CM，LCM
 
-结合对抗学习的步数蒸馏：ADD，LADD，UFOGen，SDXL-lighting
+\textbf{结合对抗学习的步数蒸馏}：
 
-基于分布匹配的步数蒸馏：DMD，DMD2
+Sauer等人\cite{sauer2024adversarial}针对扩散模型因迭代采样导致推理速度慢的问题，提出了一种结合对抗训练与蒸馏的新方法——对抗扩散蒸馏（Adversarial Diffusion Distillation, ADD），该方法利用对抗损失确保单步生成的高保真度，同时通过蒸馏预训练扩散模型保留对复杂数据分布的建模能力。实验结果表明，该方法仅需1-4步采样即可达到与SDXL\cite{podell2023sdxl}等先进扩散模型相媲美的生成质量。
+
+隐空间对抗扩散蒸馏（Latent Adversarial Diffusion Distillation，LADD）\cite{sauer2024fast}在对抗扩散蒸馏（ADD）基础上进行了重要改进。它将教师和学生模型操作转移到隐空间，降低计算成本的同时提升了对高分辨率和多尺度图像的支持能力，并兼容大规模模型架构。LADD还创新性地使用教师模型提取的隐空间多尺度特征计算对抗损失，有效避免像素级对齐的过拟合风险，同时增强了跨模态应用的灵活性。
+
+UFOGen\cite{xu2024ufogen}通过新颖的扩散-GAN联合优化目标，实现了单步推理生成高质量文本条件图像的突破。该框架中的对抗损失专注于提升单步生成图像的视觉质量，使模型能够有效处理高噪声水平并产生更为锐利的细节；同时，扩散损失一方面稳定了对抗训练过程，为生成器提供明确的学习方向，另一方面有效保持了预训练扩散模型的特征完整性，从而确保生成内容的语义一致性和多样性。
+
+\textbf{基于分布匹配的步数蒸馏}：DMD，DMD2
 
 
 \subsection{底层计算优化方法}
