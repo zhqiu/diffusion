@@ -31,6 +31,8 @@
 
 \section{扩散模型数学基础}
 
+【这里可以用一张表或图进行总结】
+
 本节系统阐述扩散模型的核心理论基础，涵盖三大主流范式：去噪扩散概率模型（Denoising Diffusion Probabilistic Model，DDPM）\cite{sohldickstein2015diffusion,ho2020denoising}、基于分数的生成模型（Score-based Generative Model，SGM）\cite{song2019generative,song2020improved}，以及基于随机微分方程的分数模型（Score SDE）\cite{song2020score,karras2022elucidating}。这三类方法本质上都遵循“先扰动、后生成”的思想框架：首先以逐步注入噪声的方式设计前向扩散过程，将结构化数据渐进变为噪声分布；再以反向去噪重建实现新样本生成。本节将依次梳理各类扩散模型的前向及反向机制，揭示模型之间的内在联系，最后介绍条件生成场景下的扩散模型数学表达形式。
 
 我们首先统一扩散模型中常用记号。设离散时间步为$t\in\{0,1,\cdots,T\}$，连续时间变量为$t\in[0,T]$。记原始数据为$\x_0\in\R^d$，满足$\x_0\sim q(\x_0)$。扩散模型通过向原始数据中不断加入高斯噪声构造一条数据轨迹$\{\x_0,\x_1,\cdots,\x_T\}$，最终使$\x_T$趋近于标准高斯分布。噪声注入强度由调度系数$\beta_t$（离散场景）或时变函数$\beta(t)dt$（连续场景）进行控制。
@@ -462,14 +464,17 @@ CLIP（Contrastive Language-Image Pre-training）\cite{radford2021learning} 是�
 
 \section{扩散模型后续改进}
 
-后续关于扩散模型的研究主要从三个方向改进经典方法（DDPMs、SGMs和Score SDEs）：（1）通过轨迹优化实现少步数生成（2）使用更快速的采样器；（3）进行精确的似然与密度估计；（4）处理常见的流形结构数据。我们将在接下来的分别对这些方向展开详细综述。
+【这里可以画一张图，总结一下四大改进方向】
 
-\subsection{少量步数生成的扩散模型范式}
+扩散模型凭借坚实的理论基础与卓越的生成能力，近年来备受关注。然而，早期扩散模型在实际应用中面临诸多挑战，例如采样效率低下限制了生成速度，似然估计不准影响了生成质量与可控性，以及欧氏空间假设难以适应实际数据常呈现的复杂流形结构。为克服这些瓶颈，研究者围绕四个核心方向开展了系统性改进：（1）通过轨迹优化实现少步数高效生成；（2）设计更为快速的采样算法，显著提升采样效率；（3）发展精确的似然评估、概率密度建模方法；（4）将扩散过程引入流形空间，有效应对结构化或复杂数据分布。这些创新性突破不仅大幅提升了扩散模型的生成质量与效率，还催生了以Stable Diffusion\cite{rombach2022high}为代表的多模态生成系统，极大推动了扩散模型从理论探索走向实际应用的进程。
+
+\subsection{少步数生成的扩散模型范式}
 \label{sec:rf_cm_lcm}
 
-之前我们介绍的传统扩散模型因需要多步迭代去噪而导致延迟较高，下面我们将介绍修正流（Rectified Flow，RF）\cite{liu2022flow}、一致性模型（Consistency Model，CM）\cite{pmlr-v202-song23a}和隐空间一致性模型（Latent Consistency Model，LCM）\cite{luo2023latent}，它们通过约束或修正扩散轨迹的几何性质，简化从噪声到数据的映射路径，从而实现少步甚至一步生成。
+传统扩散模型由于需要多步迭代去噪，导致推理延迟较高，制约了其在实际场景中的应用。为克服这一瓶颈，近年来学者们提出了一系列约束扩散轨迹几何性质的方法，以实现少步、高效甚至一步式的数据生成。其中，修正流（Rectified Flow, RF）\cite{liu2022flow}、一致性模型（Consistency Model, CM）\cite{pmlr-v202-song23a}以及隐空间一致性模型（Latent Consistency Model, LCM）\cite{luo2023latent}代表了当前该领域的重要进展。
 
-从SDE的角度，普通扩散模型由于反向过程中包含布朗运动项，所以从噪声到数据的路径是非线性的，故推理时需要较小的步长。修正流（RF）是近年来扩散模型（Diffusion Models）领域的重要改进方法，旨在解决传统扩散模型训练和推理效率低下的问题。RF受到ODE和最优传输（Optimal Transport, OT）理论的启发，其核心目标是构建更“直”的传输路径，这样就允许我们在生成时采用较大的步长而不发散，因而有效降低的采样迭代次数。具体地，RF将前向过程定义为连接数据分布与标准正态分布的直线路径，即：
+
+从SDE的角度，普通扩散模型由于反向过程中包含布朗运动项，所以从噪声到数据的路径是非线性的，故推理时需要较小的步长。修正流（RF）\cite{liu2022flow}是近年来扩散模型领域的重要改进方法，旨在解决传统扩散模型训练和推理效率低下的问题。RF受到ODE和最优传输（Optimal Transport, OT）理论的启发，其核心目标是构建更“直”的传输路径，这样就允许我们在生成时采用较大的步长而不发散，因而有效降低的采样迭代次数。具体地，RF将前向过程定义为连接数据分布与标准正态分布的直线路径，即：
 \begin{equation*}
     \x_t = (1-\sigma_t)\x_0 + \sigma_t\epsilon,
 \end{equation*}
@@ -477,15 +482,14 @@ CLIP（Contrastive Language-Image Pre-training）\cite{radford2021learning} 是�
 \begin{equation*}
     \mathcal{L}_{\text{task}} =\E_{\epsilon\sim\N(\mathbf{0},\mathbf{I}),t}\left[\|(\epsilon-\x_0) - v_\theta(\x_t,t)\|_2^2\right].
 \end{equation*}
-可以看出，该速度场实际上刻画的就是噪声$\epsilon$到图像$\x_0$的方向。为了提升训练稳定性，Liu等人\cite{liu2022flow}提出使用logit-normal采样策略采样$t$，它会以更高的概率采样中间步骤。在推理阶段，RF采用Flow-Euler采样器，它基于学到的速度场来计算下个样本点：
+可以看出，该速度场实际上刻画的就是噪声$\epsilon$到图像$\x_0$的最优传输方向。为了提升训练稳定性，Liu等人\cite{liu2022flow}提出使用logit-normal采样策略采样$t$，它会以更高的概率采样中间步骤。在推理阶段，RF采用Flow-Euler采样器，它基于学到的速度场来计算下个样本点：
 \begin{equation*}
     \x_{t-1} = \x_t + (\sigma_{t-1} - \sigma_t)\cdot v_\theta(\x_t,t),
 \end{equation*}
-其中$v_\theta(\x_t,t)$可以看作步长。可以看出，修正流通过显式强制路径线性化并用速度场建模替代传统的扩散过程，一方面保留了扩散模型的渐进生成特性，一方面又摆脱了之前扩散模型ODE对分数函数的依赖，实现了高效采样。在采样时通常仅需10$\sim$20步即可达到高质量生成。
+其中$\sigma_{t-1} - \sigma_t$可以看作步长。可以看出，修正流通过显式强制路径线性化并用速度场建模替代传统的扩散过程，一方面保留了扩散模型的渐进生成特性，一方面又摆脱了之前扩散模型ODE对分数函数的依赖，实现了高效采样。在采样时通常仅需10$\sim$20步即可达到高质量生成。
 
 
-一致性模型（CM）是一种能实现单步或少量步数生成的新型生成模型，其核心思想是学习一个一致性函数（consistency function），将概率流常微分方程（PF-ODE）轨迹上的任意点映射至该轨迹的起点（即PF-ODE的解、原始数据）。一致性函数被定义为$\f:(\
-x_t,t)\rightarrow \x_\epsilon$，其中$\epsilon$是一个很小的正常数，求解器为了保证数值计算稳定通常停止于$t=\epsilon$，$\x_\epsilon$表示一个与真实样本非常接近的数据点。一致性函数需要满足以下的自一致性：
+一致性模型（CM）\cite{pmlr-v202-song23a}是一种能实现单步或少量步数生成的新型生成模型，其核心思想是学习一个一致性函数（consistency function），将概率流常微分方程（PF-ODE）轨迹上的任意点映射至该轨迹的起点（即PF-ODE的解——原始数据）。一致性函数被定义为$\f:(\x_t,t)\rightarrow \x_\epsilon$，其中$\epsilon$是一个很小的正常数，求解器为了保证数值计算稳定通常停止于$t=\epsilon$，$\x_\epsilon$表示一个与真实样本非常接近的数据点。一致性函数需要满足以下的自一致性（self-consistency）：
 \begin{equation*}
     \f(\x_t,t)=\f(\x_{t^{\prime}},t^{\prime}),\ \forall t,t^\prime\in [\epsilon,T]. 
 \end{equation*}
@@ -501,10 +505,10 @@ Song等人\cite{pmlr-v202-song23a}提出可以通过让上面的性质成立来�
 \begin{equation*}
     \hat{\x}_{t_n}^\phi \leftarrow \x_{t_{n+1}} + (t_n-t_{n+1})\Phi(\x_{t_{n+1}},t_{n+1};\phi),
 \end{equation*}
-其中$\Phi$表示用于求解PF-ODE的单步ODE求解器，可以使用Euler求解器\cite{song2020score}或Heun求解器\cite{karras2022elucidating}。
+其中$\Phi$表示用于求解PF-ODE的单步ODE求解器，可以使用Euler求解器\cite{song2020score}或Heun求解器\cite{karras2022elucidating}。实验表明，CM能够实现单步或极少步数的高质量采样，极大提高了生成效率，为扩散模型的实际部署提供了有力支持。
 
+隐空间一致性模型（Latent Consistency Models, LCM）\cite{luo2023latent}在一致性模型的基础上进行了关键性改进，通过将自一致性约束迁移至预训练扩散模型（如Stable Diffusion）的VAE隐空间中。相较于传统像素空间的一致性建模，隐空间维度的大幅降低不仅显著提升了计算效率，还能充分利用已有扩散模型的文本编码器（如CLIP encoder），从而天然适配文本到图像等多模态生成任务。为实现更高效的引导生成，作者提出了引导蒸馏技术：一方面通过求解增强概率流ODE将无分类器引导（CFG）机制融入模型训练，另一方面引入跳跃步长策略以加速训练收敛。实验结果表明，该方法在保持生成多样性和图像质量的前提下，可将采样步数压缩至1-4步，这一进展有效推动了条件扩散模型在工业级应用中的实际部署。
 
-隐空间一致性模型（LCM）\cite{luo2023latent}在一致性模型（CM）的基础上，将像素空间的一致性约束迁移到预训练扩散模型的隐空间（如Stable Diffusion的VAE隐空间），这样不仅大大提升了计算效率，而且LCM可复用预训练扩散模型的文本编码器（如CLIP），可以实现文本到图像的高效单步生成（如1～4步）。
 
 
 \subsection{更快速的采样器}
@@ -591,6 +595,8 @@ $\bar{\beta}_t=1-\bar{\alpha}_t$（$\bar{\alpha}_t$由(\ref{ddpm:bar_alpha})定�
 
 区别于LSGM的联合训练范式，潜在扩散模型（Latent Diffusion Model，LDM）\cite{rombach2022high}采用分阶段优化策略。其技术核心在于：首先独立训练具有感知等效特性的分层VAE，构建高度语义压缩的潜在表示空间；随后在此稳定收敛的潜在空间中训练扩散概率模型。这种解耦式训练架构不仅降低了模型优化难度，更重要的是通过建立“感知等效-语义压缩”的潜在空间，使得扩散过程能聚焦于本质特征学习，从而在图像生成任务中实现计算复杂度降低与视觉保真度提升的双重突破。
 
+\newpage
+
 \section{大规模文生图模型}
 
 基于去噪过程的扩散生成模型\cite{song2019generative,song2020improved,ho2020denoising}通过逐步去除数据中的噪声，实现了高保真且多样化的合成效果。结合预训练语言模型\cite{raffel2020exploring,radford2021learning}的突破性进展，文本生成图像（T2I）合成质量得到显著提升。GLIDE\cite{pmlr-v162-nichol22a}和Imagen\cite{saharia2022photorealistic}采用以文本为条件的扩散模型先生成小尺寸图像，再通过超分辨率模块进行放大。DALL·E-2\cite{ramesh2022hierarchical}利用CLIP将文本编码为特征，再通过扩散模型生成对应的图像特征，最后用分层扩散模型合成高分辨率图像。
@@ -652,7 +658,7 @@ $\bar{\beta}_t=1-\bar{\alpha}_t$（$\bar{\alpha}_t$由(\ref{ddpm:bar_alpha})定�
 其中$Q_{\z_t}$投影自噪声数据$\z_t$，$K_{\c}$和$V_{\c}$投影自文本信息$\c$，$d$是特征维度。ResNet模块在UNet中用于捕捉局部空间特征。ResNet与交叉注意力的结合，正是扩散模型兼顾全局语义与局部真实性的关键设计。图\ref{fig:latency_params_unet}对比了该网络各层的延时与参数量，可以看出参数主要集中在UNet中段，这是由于通道维度的扩展所致，其中ResNet块占据了绝大部分比例。相比之下，UNet中速度最慢的部分是输入和输出阶段，这些层级具有最大的特征分辨率，因为空间交叉注意力的计算复杂度与特征尺寸（在ViT中被量化为token数量）呈平方关系。
 
 
-\section{扩散模型的加速}
+\section{端侧部署的关键技术}
 
 在本节中，我们将深入分析基于广泛应用的扩散模型(SDM)的主流加速方法。首先，我们将介绍\textbf{网络参数量化技术}，这类方法在不显著修改网络架构的前提下，有效降低了计算内存和存储需求。随后，我们探讨多种\textbf{精简网络架构设计}的工作，它们通过不同策略简化网络结构以提高效率。由于修改网络架构后通常需要对模型进行微调，我们进而分析主流的\textbf{知识蒸馏与步数蒸馏}技术，其中知识蒸馏使小模型能够快速掌握大模型的能力，而步数蒸馏则大幅加速推理过程。最后，我们考察各种\textbf{底层计算优化方法}，这些方法从硬件系统层面对扩散模型中的计算过程进行优化，进一步提升性能。
 
