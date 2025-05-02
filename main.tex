@@ -1,6 +1,7 @@
 % !TeX root = main.tex
 \documentclass[11pt,a4paper,UTF8]{ctexart}
 \usepackage{quicklatex} % 引入自定义样式
+\usepackage[toc,page]{appendix}
 
 \title{端侧文生多模态大模型文献综述}
 \author{邱梓豪}
@@ -14,11 +15,16 @@
 \tableofcontents
 \newpage
 
+\section{前言}
+
+在这篇文献综述中，我们将对端侧文生图模型的核心技术进展进行系统性梳理与评述。本文的内容框架采用四部分递进式结构：理论基础、算法改进、模型实现与端侧优化。第一部分聚焦扩散模型的数学基础体系。我们将首先介绍扩散模型的三大理论框架：去噪扩散概率模型、基于分数的生成模型以及随机微分方程方法。在此基础上，我们将严格推导条件生成场景下的数学表达形式，阐明文本到图像生成的概率建模机制。第二部分系统梳理扩散模型的关键算法改进。本部分将重点讨论：（1）少步数扩散模型范式；（2）高效的采样算法；（3）似然估计的优化方法；（4）流形空间上的扩散建模进展。这些改进显著提升了模型的实用性和生成效率，其中很多已成为当前方法的标准配置。第三部分深入分析主流文生图大模型的技术实现。我们将从模型架构设计、训练数据构建、优化策略三方面进行介绍，并结合基准测试结果评估各方法的优劣。第四部分专门探讨端侧部署的关键技术。针对移动设备的计算约束，我们将阐述：（1）参数量化与稀疏化技术；（2）轻量级网络结构设计；（3）基于蒸馏的模型压缩方法（包括参数蒸馏与步数蒸馏）；（4）硬件感知的底层计算优化策略。本综述旨在为研究者提供从理论到实践的完整技术图谱，推动高效生成模型的端侧应用发展。
+
 \section{扩散模型数学基础}
 
-本文首先系统阐述扩散模型的基础理论框架，涵盖三大主流范式：去噪扩散概率模型（Denoising Diffusion Probabilistic Model，DDPM）\cite{sohldickstein2015diffusion,ho2020denoising}、基于分数的生成模型（Score-based Generative Model，SGM）\cite{song2019generative,song2020improved}以及随机微分方程（Stochastic Differential Equation，SDE）框架下的分数生成模型（Score SDE）\cite{song2020score,karras2022elucidating}。这些方法均基于“先扰动后生成”的核心思想：通过渐进式噪声注入构建前向扩散过程，再通过反向去噪过程实现数据生成。本节将依次详细描述三类扩散模型的前向反向机制，阐明其内在关联与相互转化关系，最后综述基于该理论框架的重要改进工作。
+本节系统阐述扩散模型的核心理论基础，涵盖三大主流范式：去噪扩散概率模型（Denoising Diffusion Probabilistic Model，DDPM）\cite{sohldickstein2015diffusion,ho2020denoising}、基于分数的生成模型（Score-based Generative Model，SGM）\cite{song2019generative,song2020improved}，以及基于随机微分方程的分数模型（Score SDE）\cite{song2020score,karras2022elucidating}。这三类方法本质上都遵循“先扰动、后生成”的思想框架：首先以逐步注入噪声的方式设计前向扩散过程，将结构化数据渐进变为噪声分布；再以反向去噪重建实现新样本生成。本节将依次梳理各类扩散模型的前向及反向机制，揭示模型之间的内在联系，最后介绍条件生成场景下的扩散模型数学表达形式。
 
-我们首先定义用于描述扩散模型中的常用符号。设离散时间步为$t\in\{0,1,\cdots,T\}$，连续时间变量为$t\in[0,T]$。给定原始数据$\x_0\in\R^d$且$\x_0\sim q(\x_0)$，扩散模型通过向原始数据中不断加入高斯噪声构造数据轨迹$\{\x_0,\x_1,\cdots,\x_T\}$，最终使$\x_T$趋近于标准高斯分布。噪声注入强度由调度系数$\beta_t$（离散场景）或时变函数$\beta(t)dt$（连续场景）进行精确控制。
+我们首先统一扩散模型中常用记号。设离散时间步为$t\in\{0,1,\cdots,T\}$，连续时间变量为$t\in[0,T]$。记原始数据为$\x_0\in\R^d$，满足$\x_0\sim q(\x_0)$。扩散模型通过向原始数据中不断加入高斯噪声构造一条数据轨迹$\{\x_0,\x_1,\cdots,\x_T\}$，最终使$\x_T$趋近于标准高斯分布。噪声注入强度由调度系数$\beta_t$（离散场景）或时变函数$\beta(t)dt$（连续场景）进行控制。
+
 
 \subsection{去噪扩散概率模型 (DDPM)}
 
@@ -43,7 +49,7 @@
 \end{equation}
 其中$\alpha_t:=1-\beta_t$，$\bar{\alpha}_t:=\prod_{s=0}^t\alpha_s$。可以看出，上式实际上允许我们通过重参数化技巧（reparameterization trick）进行高效采样，即对于标准高斯噪声$\epsilon\in\N(0,\mathbf{I})$，$\x_t$的采样可表示为：
 \begin{equation*}
-    \x_t=\sqrt{\bar{\alpha_t}}\x_0 + (1-\bar{\alpha_t})\epsilon.
+    \x_t=\sqrt{\bar{\alpha}_t}\x_0 + (1-\bar{\alpha}_t)\epsilon.
 \end{equation*}
 值得注意的是，当$T$足够大时，$\bar{\alpha}_T\approx 0$，使得边缘分布$q(\x_T)=\int q(\x_T|\x_0)q(\x_0)d\x_0$渐进收敛于标准高斯分布$\N(\mathbf{0},\mathbf{I})$，从而满足前向过程将数据完全扩散为噪声的设计目标。
 
@@ -55,140 +61,52 @@
 \begin{equation*}
 \x_T \sim p(\x_T) \rightarrow \x_{T-1} \sim p_{\theta}(\x_{T-1}|\x_T) \rightarrow \cdots \rightarrow \x_0 \sim p_{\theta}(\x_0|\x_1).
 \end{equation*}
-我们将在下一节详细阐述如何通过数学推导和人为设计得到方便计算优化的$\mu_{\theta}(\x_t,t)$和$\Sigma_{\theta}(x_t,t))$。
+在下一节，我们将推导DDPM的目标函数，并展示如何通过数学推导和特定的参数化设计得到方便计算优化的$\mu_{\theta}(\x_t,t)$和$\Sigma_{\theta}(x_t,t))$形式。
 
 
 \subsubsection{DDPM的训练与推理}
 
-我们首先推导扩散模型的训练目标函数，即学习一个有效的反向条件分布$p_{\theta}(\x_{t-1}|\x_t)$。通过理论推导可以发现，该目标函数的具体形式将指导我们设计$p_{\theta}(\x_{t-1}|\x_t)$的参数化方式——具体而言，我们可以据此构造易于优化计算的均值函数$\mu_{\theta}(\x_t,t)$和方差函数$\Sigma_{\theta}(\x_t,t)$。从概率建模的角度，训练过程的核心在于通过最大化数据对数似然的变分下界（Evidence Lower Bound, ELBO）来实现模型优化。具体而言，给定数据样本$\x_0\sim q(\x_0)$，反向过程生成$\x_0$的对数似然为$\log p_{\theta}(\x_0)$，其变分下界推导如下：
-\begin{align}
-\begin{split}
-    \log p_{\theta}(\x_0) &= \log \int p_{\theta}(\x_0,\cdots,\x_T)d\x_{1:T} \\
-    &= \log \int p_{\theta}(\x_0,\cdots,\x_T)\frac{q(\x_1,\cdots,\x_T|\x_0)}{q(\x_1,\cdots,\x_T|\x_0)}d\x_{1:T} \\
-    &= \log \int q(\x_1,\cdots,\x_T|\x_0)\frac{p_{\theta}(\x_0,\cdots,\x_T)}{q(\x_1,\cdots,\x_T|\x_0)}d\x_{1:T} \\
-    &= \log \E_q \left[\frac{p_{\theta}(\x_0,\cdots,\x_T)}{q(\x_1,\cdots,\x_T|\x_0)}\right] \\
-    & \geq \E_q \left[\log \frac{p_{\theta}(\x_0,\cdots,\x_T)}{q(\x_1,\cdots,\x_T|\x_0)}\right].
-\end{split}
-\label{ddpm:1}
-\end{align}
-上面最后一个不等式基于的Jensen不等式。此外，由前向和反向过程的马尔可夫性质，即
-\begin{align*}
-    p_{\theta}(\x_0,\cdots,\x_T) &= p_{\theta}(\x_T)p_{\theta}(\x_0|\x_1)\prod_{t=2}^T p_{\theta}(\x_{t-1}|\x_t) \\
-    q(\x_1,\cdots,\x_T|\x_0) &= q(\x_T|\x_{T-1})\prod_{t=1}^{T-1}q(\x_t|\x_{t-1}),
-\end{align*}
-我们可以进一步对(\ref{ddpm:1})进行展开，得到：
-\begin{align}
-\begin{split}
-    &\log p_{\theta}(\x_0) \geq \E_q \left[\log \frac{p_{\theta}(\x_0,\cdots,\x_T)}{q(\x_1,\cdots,\x_T|\x_0)}\right] \\
-    &= \E_q \left[\log\frac{p_{\theta}(\x_T)p_{\theta}(\x_0|\x_1)\prod_{t=2}^T p_{\theta}(\x_{t-1}|\x_t)}{q(\x_T|\x_{T-1})\prod_{t=1}^{T-1}q(\x_t|\x_{t-1})} \right] \\
-    &= \E_q \left[\log\frac{p_{\theta}(\x_T)p_{\theta}(\x_0|\x_1)\prod_{t=1}^{T-1} p_{\theta}(\x_{t}|\x_{t+1})}{q(\x_T|\x_{T-1})\prod_{t=1}^{T-1}q(\x_t|\x_{t-1})} \right] \\
-    &= \E_q\left[\log\frac{p_{\theta}(\x_T)p_{\theta}(\x_0|\x_1)}{q(\x_T|\x_{T-1})} \right] + \E_q\left[\log\prod_{t=1}^{T-1}\frac{p_{\theta}(\x_{t}|\x_{t+1})}{q(\x_t|\x_{t-1})} \right] \\
-    &= \E_q[\log p_{\theta}(\x_0|\x_1)] - \E_q[\text{KL}(q(\x_T|\x_{T-1}) \| p_{\theta}(\x_T))] -\Sigma_{t=1}^{T-1}\E_q[\text{KL}(q(\x_t|\x_{t-1}) \| p_{\theta}(\x_{t}|\x_{t+1}))],
-\end{split}
-\label{ddpm:2}
-\end{align}
-上面最后一个等式来自于KL散度的定义。此外，由于$p_{\theta}(\x_T)$的计算不需要扩散模型参与，实际上没有可学习参数，所以可以视为一个常数const。最终，我们可以得到如下简化的变分下界：
-\begin{equation}
-\log p_{\theta}(\x_0) \geq \E_q[\log p_{\theta}(\x_0|\x_1)]  -\Sigma_{t=1}^{T-1}\E_q[\text{KL}(q(\x_t|\x_{t-1}) \| p_{\theta}(\x_{t}|\x_{t+1}))] + \text{const}
-\label{ddpm:3}
-\end{equation}
+DDPM的核心训练目标在于学习反向条件分布$p_{\theta}(\x_{t-1}|\x_t)$，该目标通过变分推断框架实现\cite{sohldickstein2015diffusion}。具体而言，基于前向扩散过程建立的马尔可夫链特性，模型通过最大化观测数据对数似然$\log p_{\theta}(\x_0)$的变分下界（ELBO）进行优化。这一理论框架将自然地引出了均值函数$\mu_{\theta}(\x_t,t)$和方差函数$\Sigma_{\theta}(\x_t,t)$的构造方法，并可由此进一步简化目标函数，最终转化为可高效优化的噪声预测任务\cite{ho2020denoising}。
 
-当我们仔细观察上面的$\E_q[\text{KL}(q(\x_t|\x_{t-1}) \| p_{\theta}(\x_{t}|\x_{t+1}))]$项时，会发现该期望计算非常困难。具体来说，我们需要从分布$q(\x_{t-1},\x_{t+1}|\x_0)$中采样$\x_{t-1}$和$\x_{t+1}$来计算期望，而该分布的具体形式未知。为了解决这个问题，我们可以使用若干由$q$函数定义的前向转移函数\emph{模拟出}一个\emph{反向转移函数}来替代$q(\x_t|\x_{t-1})$，由于这个新的反向转移函数具有和$p_{\theta}(\x_t|\x_{t+1})$相同的方向，所以期望的计算可以大大简化。具体地，我们由贝叶斯定理，可得：
-\begin{equation*}
-    q(\x_t|\x_{t-1})=\frac{q(\x_{t-1}|\x_t)q(\x_t)}{q(\x_{t-1})},
-\end{equation*}
-又因为$\x_{t-1}$实际上是前向过程中由$\x_0$产生的，所以$\x_{t-1}$的分布依赖于$\x_0$，故我们将上式替换成下面的基于$\x_0$的形式：
+给定数据样本$\x_0\sim q(\x_0)$，反向生成$\x_0$的对数似然为$\log p_{\theta}(\x_0)$的ELBO形式可由Jensen不等式及前向/反向过程的马尔可夫性质推导而来（推导详细见附录\ref{app:ddpm_elbo}）：
 \begin{equation}
-    q(\x_t|\x_{t-1},\x_0)=\frac{q(\x_{t-1}|\x_t,\x_0)q(\x_t|\x_0)}{q(\x_{t-1}|\x_0)}.
-\label{ddpm:bayes}
+\log p_{\theta}(\x_0) \geq \E_q[\log p_{\theta}(\x_0|\x_1)]  - \sum_{t=2}^{T} \mathbb{E}q \left[ \mathrm{KL} (q(\x_{t-1}|\x_t,\x_0),|,p_\theta(\x_{t-1}|\x_t)) \right] + \text{const},
+\label{eq:ddpm-elbo}
 \end{equation}
-可以看出上式中的$q(\x_{t-1}|\x_t,\x_0)$实际上就是我们想要的\emph{反向转移函数}。此时，我们可以根据(\ref{ddpm:1})推导出$\log p_{\theta}(\x_0)$的新变分下界如下：
-\begin{align}
-\begin{split}
-    \log p_{\theta}(\x_0) & \geq \E_q \left[\log \frac{p_{\theta}(\x_0,\cdots,\x_T)}{q(\x_1,\cdots,\x_T|\x_0)}\right] \\
-    &= \E_q \left[\log\frac{p_{\theta}(\x_T)p_{\theta}(\x_0|\x_1)\prod_{t=2}^T p_{\theta}(\x_{t-1}|\x_t)}{q(\x_1|\x_0)\prod_{t=2}^T q(\x_t|\x_{t-1},\x_0)} \right] \\
-    &= \E_q \left[\log\frac{p_{\theta}(\x_T)p_{\theta}(\x_0|\x_1)}{q(\x_1|\x_0)} \right] + \E_q \left[\log \prod_{t=2}^T \frac{p_{\theta}(\x_{t-1}|\x_t)}{q(\x_t|\x_{t-1},\x_0)} \right].
-\end{split}
-\label{ddpm:3}
-\end{align}
-
-随后，我们将(\ref{ddpm:bayes})代入(\ref{ddpm:3})的第二项，可得：
-\begin{align}
-\begin{split}
-    \prod_{t=2}^T \frac{p_{\theta}(\x_{t-1}|\x_t)}{q(\x_t|\x_{t-1},\x_0)} &= \prod_{t=2}^T \frac{p_{\theta}(\x_{t-1}|\x_t)}{\frac{q(\x_{t-1}|\x_t,\x_0)q(\x_t|\x_0)}{q(\x_{t-1}|\x_0)}} \\
-    &= \prod_{t=2}^T \frac{p_{\theta}(\x_{t-1}|\x_t)}{q(\x_{t-1}|\x_t,\x_0)}  \times \prod_{t=2}^T \frac{q(\x_{t-1}|\x_0)}{q(\x_t|\x_0)} \\
-    &= \prod_{t=2}^T \frac{p_{\theta}(\x_{t-1}|\x_t)}{q(\x_{t-1}|\x_t,\x_0)}  \times \frac{q(\x_1|\x_0)}{q(\x_T|\x_0)},
-\end{split}
-\label{ddpm:4}
-\end{align}
-其中最后一个等式成立是因为对任意序列$a_1,a_2,\cdots,a_T$，有$\prod_{t=2}^T\frac{a_{t-1}}{a_t}=\frac{a_1}{a_2}\times\frac{a_2}{a_3}\times\cdots\times\frac{a_{T-1}}{a_T}=\frac{a_1}{a_T}$。随后我们将(\ref{ddpm:4})代入(\ref{ddpm:3})中，可得：
-\begin{align}
-\begin{split}
-    & \E_q \left[\log\frac{p_{\theta}(\x_T)p_{\theta}(\x_0|\x_1)}{q(\x_1|\x_0)} \right] + \E_q \left[\log \prod_{t=2}^T \frac{p_{\theta}(\x_{t-1}|\x_t)}{q(\x_t|\x_{t-1},\x_0)} \right] \\
-    &= \E_q \left[\log\frac{p_{\theta}(\x_T)p_{\theta}(\x_0|\x_1)}{q(\x_1|\x_0)} \right] + \E_q \left[\log \left(\prod_{t=2}^T \frac{p_{\theta}(\x_{t-1}|\x_t)}{q(\x_{t-1}|\x_t,\x_0)}  \times \frac{q(\x_1|\x_0)}{q(\x_T|\x_0)}\right) \right] \\
-    &=\E_q \left[\log\frac{p_{\theta}(\x_T)p_{\theta}(\x_0|\x_1)}{q(\x_1|\x_0)} + \log \frac{q(\x_1|\x_0)}{q(\x_T|\x_0)} \right] + \E_q \left[\log \prod_{t=2}^T \frac{p_{\theta}(\x_{t-1}|\x_t)}{q(\x_{t-1}|\x_t,\x_0)}  \right] \\
-    &= \E_q \left[\log\frac{p_{\theta}(\x_T)p_{\theta}(\x_0|\x_1)}{q(\x_T|\x_0)} \right] + \E_q \left[\log \prod_{t=2}^T \frac{p_{\theta}(\x_{t-1}|\x_t)}{q(\x_{t-1}|\x_t,\x_0)}  \right] \\
-    &= \E_q [p_{\theta}(\x_0|\x_1)] + \E_q\left[\frac{p_{\theta}(\x_T)}{q(\x_T|\x_0)}\right] + \Sigma_{t=2}^T \E_q \log \frac{p_{\theta}(\x_{t-1}|\x_t)}{q(\x_{t-1}|\x_t,\x_0)} \\
-    &= \E_q [p_{\theta}(\x_0|\x_1)] -\text{KL}(q(\x_T|\x_0)\| p_{\theta}(\x_T)) -  \Sigma_{t=2}^T \text{KL}(q(\x_{t-1}|\x_t,\x_0) \| p_{\theta}(\x_{t-1}|\x_t)),
-\end{split}
-\label{ddpm:5}
-\end{align}
-其中我们在最后一个等式中使用了KL散度的定义。由于上式中$p_{\theta}(\x_T)$不需要学习，所以$\text{KL}(q(\x_T|\x_0)\| p_{\theta}(\x_T))$可以视作常数，因此，我们可以得到下面的数据对数似然$\log p_{\theta}(\x_0)$的变分下界：
-\begin{equation}
-\log p_{\theta}(\x_0) \geq \E_q [\log p_{\theta}(\x_0|\x_1)] -  \Sigma_{t=2}^T \text{KL}(q(\x_{t-1}|\x_t,\x_0) \| p_{\theta}(\x_{t-1}|\x_t)) + \text{const}.
-\label{ddpm:elbo}
-\end{equation}
-可以看出，计算(\ref{ddpm:elbo})中的KL项（本质上是期望）所需的$\x_t$和$\x_0$实际上可以从分布$q(\x_t|\x_0)$中采样得到，该分布具有简洁的形式，因此(\ref{ddpm:elbo})相比前面提到的(\ref{ddpm:3})计算上简单很多。于是我们可以定义\emph{变分下界损失}$\mathcal{L}_{\text{VLB}}$如下：
+其中$q(\x_{t-1}|\x_t,\x_0)$为前向过程的“后验”分布，$p_\theta(\x_{t-1}|\x_t)$为可学习的反向分布，KL散度量化了模型在反向还原过程中对数据分布的逼近程度，$\text{const}$项中不包含可学习的参数。于是我们可以定义\emph{变分下界损失}$\mathcal{L}_{\text{VLB}}$如下：
 \begin{equation}
 \mathcal{L}_{\text{VLB}} := -\E_q [\log p_{\theta}(\x_0|\x_1)] +  \Sigma_{t=2}^T \text{KL}(q(\x_{t-1}|\x_t,\x_0) \| p_{\theta}(\x_{t-1}|\x_t)),
 \label{ddpm:loss_vlb}
 \end{equation}
-显然，最小化$\mathcal{L}_{\text{VLB}}$即是最大化(\ref{ddpm:elbo})中的变分下界，等价于最大化扩散模型生成数据的似然。
+显然，最小化$\mathcal{L}_{\text{VLB}}$即是最大化(\ref{eq:ddpm-elbo})中的变分下界，等价于最大化扩散模型生成数据的似然。
 
-
-下一步我们要确定$q(\x_{t-1}|\x_t,\x_0)$的具体形式。由(\ref{ddpm:bayes})可知，$q(\x_{t-1}|\x_t,\x_0)$由$q(\x_{t}|\x_{t-1},\x_0)$、$q(\x_{t-1}|\x_0)$和$q(\x_{t}|\x_0)$决定，而由扩散模型前向过程的定义可知，这三项的表达式分别为：
-\begin{align*}
-    q(\x_{t}|\x_{t-1},\x_0) &= \N(\x_t|\sqrt{\alpha_t}\x_{t-1},(1-\alpha_t)\mathbf{I}),  \\
-    q(\x_{t-1}|\x_0) &= \N(\x_{t-1}|\sqrt{\bar{\alpha}_{t-1}}\x_0,(1-\bar{\alpha}_{t-1})\mathbf{I}), \\
-    q(\x_{t}|\x_0) &=\N(\x_{t}|\sqrt{\bar{\alpha}_{t}}\x_0,(1-\bar{\alpha}_{t})\mathbf{I}),
-\end{align*}
-所以，由(\ref{ddpm:bayes})，我们可以得到
-\begin{equation}
-    q(\x_{t-1}|\x_t,\x_0) = \frac{\N(\x_t|\sqrt{\alpha_t}\x_{t-1},(1-\alpha_t)\mathbf{I})\N(\x_{t-1}|\sqrt{\bar{\alpha}_{t-1}}\x_0,(1-\bar{\alpha}_{t-1})\mathbf{I})}{\N(\x_{t}|\sqrt{\bar{\alpha}_{t}}\x_0,(1-\bar{\alpha}_{t})\mathbf{I})}.
-\label{ddpm:dist_of_reverse_pre}
-\end{equation}
-
-随后，我们实际上可以证明$q(\x_{t-1}|\x_t,\x_0)$也服从高斯分布，并具有$\N(\x_{t-1}|\A\x_t+\B\x_0,\C\mathbf{I})$的形式，为了确认$\A$，$\B$和$\C$的具体形式，我们可以首先将($\ref{ddpm:dist_of_reverse_pre}$)中右侧三个高斯分布的乘积转化为指数之和，随后可以通过求一次导和二次导得到$\A$，$\B$和$\C$。这里我们省略具体过程，$q(\x_{t-1}|\x_t,\x_0)$的最后形式如下：
+$q(\x_{t-1}|\x_t,\x_0)$经过推导（详见附录\ref{app:ddpm_forward_posterior_distribution}），可以证明其具有如下高斯分布形式：
 \begin{align}
 \begin{split}
     q(\x_{t-1}|\x_t,\x_0) &= \N(\x_{t-1}|\mu_q(\x_t,\x_0),\Sigma_q(t)),\\
     \mu_q(\x_t,\x_0) &= \frac{(1-\bar{\alpha}_{t-1})\sqrt{\alpha_t}}{1-\bar{\alpha}_t}\x_t + \frac{(1-\alpha_t)\sqrt{\bar{\alpha}_{t-1}}}{1-\bar{\alpha}_t}\x_0 \\
     \Sigma_q(t) &= \frac{(1-\alpha_t)(1-\bar{\alpha}_{t-1})}{1-\bar{\alpha}_t}\mathbf{I}  \stackrel{\text{def}}{=} \sigma_q^2(t)\mathbf{I},
 \end{split}
-\label{ddpm:dist_of_reverse}
+\label{eq:reverse-posterior-main}
 \end{align}
-其中$\bar{\alpha}_t=\Pi_{i=1}^t \alpha_i$。
-
-现在我们已经得到了变分下界(\ref{ddpm:elbo})中$q(\x_{t-1}|\x_t,\x_0)$所具有的高斯形式，由于$p_{\theta}(\x_{t-1}|\x_t)$是可以设计的，所以我们选择将其也设置为一个高斯分布，因为两个高斯分布的KL散度是便于简化计算的。具体地，我们定义：
-\begin{equation}
-p_{\theta}(\x_{t-1}|\x_t) = \N(\x_{t-1}| \mu_{\theta}(\x_t,t), \sigma_q^2(t)\mathbf{I}),
-\label{ddpm:p_reverse}
-\end{equation}
-其中均值向量$\mu_{\theta}(\x_t,t)$是由一个神经网络生成的，其具体形式我们将在后文中给出；至于方差，我们则是选择了与(\ref{ddpm:dist_of_reverse})中$q(\x_{t-1}|\x_t,\x_0)$相同的$\sigma_q^2(t)\mathbf{I}$。于是(\ref{ddpm:elbo})中的KL散度可以简化为
+其中$\bar{\alpha}_t=\Pi_{i=1}^t \alpha_i$。为便于解析计算及模型优化，反向分布$p_{\theta}(\x_0|\x_1)$也采用高斯分布建模，即
+\begin{equation*}
+    p_{\theta}(\x_0|\x_1)=\N(\x_{t-1}| \mu_{\theta}(\x_t,t), \sigma_q^2(t)\mathbf{I}),
+\end{equation*}
+其中，均值参数$\mu_\theta(\x_t,t)$由神经网络$\mu_{\theta}(\x_t,t)$预测，方差项通常与前向过程一致，即$\sigma_q^2(t)\mathbf{I}$。于是(\ref{eq:ddpm-elbo})中的KL散度可简化为：
 \begin{align}
 \begin{split}
-    & \text{KL}\left(q(\x_{t-1}|\x_t,\x_0) \| p_{\theta}(\x_{t-1}|\x_t)\right) \\
-    &= \text{KL} \left(\N(\x_{t-1}|\mu_q(\x_t,\x_0),\sigma_q^2(t)\mathbf{I}) \| \N(\x_{t-1}| \mu_{\theta}(\x_t,t), \sigma_q^2(t)\mathbf{I})\right) \\
+    \text{KL}\left(q(\x_{t-1}|\x_t,\x_0) \| p_{\theta}(\x_{t-1}|\x_t)\right) &= \text{KL} \left(\N(\x_{t-1}|\mu_q(\x_t,\x_0),\sigma_q^2(t)\mathbf{I}) \| \N(\x_{t-1}| \mu_{\theta}(\x_t,t), \sigma_q^2(t)\mathbf{I})\right) \\
     &= \frac{1}{2\sigma_q^2(t)} \| \mu_q(\x_t,\x_0) - \mu_{\theta}(\x_t,t) \|^2,
 \label{ddpm:elbo_simp_1}
 \end{split}
 \end{align}
-在上面的推导中，我们使用了两个方差相同的高斯分布的KL散度实际上是这两个分布均值向量的欧式距离这一关系。
+上面利用了两方差相同的高斯分布间的KL散度可简化为其均值向量间的平方欧式距离这一点。
 
-此外，对于变分下界(\ref{ddpm:elbo})中的$\log p_{\theta}(\x_0|\x_1)$可以进行如下简化：
+此外，对于变分下界(\ref{eq:ddpm-elbo})中的$\log p_{\theta}(\x_0|\x_1)$可以进行如下简化：
 \begin{align}
 \begin{split}
-\log p_{\theta}(\x_0|\x_1) &= \log \N(\x_0| \mu_{\theta}(\x_1,1),\sigma_q^2(1)\mathbf{I}) \\
+&\log p_{\theta}(\x_0|\x_1) = \log \N(\x_0| \mu_{\theta}(\x_1,1),\sigma_q^2(1)\mathbf{I}) \\
 &= \log \left( \frac{1}{\left(\sqrt{2\pi\sigma_q^2(1)} \right)^d} \right)\exp \left\{-\frac{\|\x_0 -\mu_{\theta}(\x_1,1) \|^2}{2\sigma_q^2(1)} \right\} \\
 &= -\frac{\|\x_0 -\mu_{\theta}(\x_1,1) \|^2}{2\sigma_q^2(1)} -\frac{d}{2}\log (2\pi\sigma_q^2(1)),
 \label{ddpm:elbo_simp_2}
@@ -200,7 +118,7 @@ p_{\theta}(\x_{t-1}|\x_t) = \N(\x_{t-1}| \mu_{\theta}(\x_t,t), \sigma_q^2(t)\mat
 \begin{equation*}
     \x_t =\sqrt{\bar{\alpha}_t}\x_0 + \sqrt{1-\bar{\alpha}_t}\epsilon \Rightarrow  \x_0 =\frac{\x_t - \sqrt{1-\bar{\alpha}_t}\epsilon}{\sqrt{\bar{\alpha}_t}}.
 \end{equation*}
-随后我们将上式代入(\ref{ddpm:dist_of_reverse})中$\mu_q(\x_t,\x_0)$的表达式，可以得到：
+随后我们将上式代入(\ref{eq:reverse-posterior-main})中$\mu_q(\x_t,\x_0)$的表达式，可以得到：
 \begin{align}
 \begin{split}
     \mu_q(\x_t,\x_0) &= \frac{(1-\bar{\alpha}_{t-1})\sqrt{\alpha_t}\x_t +(1-\alpha_t)\sqrt{\bar{\alpha}_{t-1}}\x_0 }{1-\bar{\alpha}_t} \\
@@ -216,17 +134,20 @@ p_{\theta}(\x_{t-1}|\x_t) = \N(\x_{t-1}| \mu_{\theta}(\x_t,t), \sigma_q^2(t)\mat
 \end{equation}
 值得注意的是，我们此时让模型预测第$t$步中向$\x_t$中加入的噪声，即$\epsilon_{\theta}(\x_t,t)$。
 
-最后，我们将(\ref{ddpm:elbo_simp_1})、(\ref{ddpm:elbo_simp_2})、(\ref{ddpm:mu_q})和(\ref{ddpm:mu_theta})代入(\ref{ddpm:elbo})，并结合(\ref{ddpm:loss_vlb})的定义，可得：
+最后，我们将(\ref{ddpm:elbo_simp_1})、(\ref{ddpm:elbo_simp_2})、(\ref{ddpm:mu_q})和(\ref{ddpm:mu_theta})代入(\ref{eq:ddpm-elbo})，并结合(\ref{ddpm:loss_vlb})的定义，可得：
 \begin{equation}
 \mathcal{L}_{\text{VLB}} = -\sum_{t=1}^T \E_q \left[\frac{1}{2\sigma_q^2(t)}\frac{(1-\alpha_t)^2}{(1-\bar{\alpha}_t)\alpha_t}\|\epsilon_{\theta}(\x_t,t)-\epsilon \|^2 \right],
 \label{ddpm:loss_vlb_denoise}
 \end{equation}
 于是我们最终得到了DDPM的目标函数，它实际上是一个监督学习型的目标函数，即训练扩散模型的输出，即$\epsilon(\x_t,t)$，来预测前向过程中每一步加入的噪声$\epsilon$。注意，实际上加入的噪声是$\epsilon$乘上某系数，但我们设计扩散模型反向过程中也让$\epsilon(\x_t,t)$乘上此系数，所以在(\ref{ddpm:loss_vlb_denoise})中该系数可以被提取出来，形成系数$\frac{1}{2\sigma_q^2(t)}\frac{(1-\alpha_t)^2}{(1-\bar{\alpha}_t)\alpha_t}$。
 
-最后我们介绍扩散模型的生成过程。在训练结束后，我们可以获得神经网络$\epsilon_{\theta}(\x_t,t)$。生成新样本时，我们先采样一个高斯白噪声$\x_T\sim\N(\mathbf{0},\mathbf{I})$，随后便可以利用(\ref{ddpm:p_reverse})中建立的$\x_{t-1}$与$\x_t$的关系以及(\ref{ddpm:mu_theta})中$\mu_\theta$的定义，迭代式地生成$\x_{T-1},\cdots,\x_0$，具体的计算方式为：
+最后我们介绍扩散模型的生成过程。在训练结束后，我们可以获得神经网络$\epsilon_{\theta}(\x_t,t)$。生成新样本时，我们先采样一个高斯白噪声$\x_T\sim\N(\mathbf{0},\mathbf{I})$，随后便可以利用(\ref{ddpm:mu_q})中建立的$\x_{t-1}$与$\x_t$的关系以及(\ref{ddpm:mu_theta})中$\mu_\theta$的定义，迭代式地生成$\x_{T-1},\cdots,\x_0$，具体的计算方式为：
 \begin{equation*}
     \x_{t-1} = \frac{1}{\sqrt{\alpha_t}}\left(\x_t -\frac{1-\alpha_t}{\sqrt{1-\bar{\alpha}_t}} \epsilon(\x_t,t) \right) + \sigma_q(t)\z,\quad \z\sim\N(\mathbf{0},\mathbf{I}).
 \end{equation*}
+
+
+\newpage
 
 
 \subsection{基于分数的生成模型 (SGM)}
@@ -630,6 +551,13 @@ DDIM与DDPM的训练目标一致，都是训练模型$\epsilon_\theta(\x_t,t)$�
 
 扩散指数积分器采样器\cite{zhang2022fast}和DPM-solver\cite{lu2022dpm}则充分利用ODE的线性-非线性分解特性，开发了专用ODE求解算法。相较于通用龙格-库塔方法，这些求解器对线性部分进行解析计算，并采用类指数积分器技术处理非线性项，其计算效率显著优于传统方法。实验表明，此类定制求解器仅需10-20次迭代即可生成高质量样本，而传统扩散模型通常需要数百次迭代才能达到同等效果，实现了数量级的速度提升。
 
+【可学习的高阶求解器】
+
+GENIE\cite{dockhorn2022genie}是一种新颖的高阶去噪扩散求解器，其核心思想是通过引入高阶梯度信息（如二阶得分函数）来更精确地逼近生成轨迹，从而显著提升扩散模型的采样效率。该方法仅需在一阶得分网络基础上增加一个额外的小型网络头，在训练阶段利用自动微分技术计算所需的高阶梯度，并将这些高阶信息蒸馏到该网络头中；在推理阶段，该网络头可直接提供高阶梯度信息，避免了显式计算高维导数带来的计算开销。这种设计在显著提升采样精度的同时，保持了模型的计算效率。
+
+Shaul等人\cite{shaul2023bespoke}提出可以为预训练的扩散模型定制可微分的参数化ODE求解器（Bespoke Solver），它将传统数值求解器的系数扩展为模型依赖的动态参数，并通过基于多步一致性约束的全局误差损失函数对该求解器中的参数进行高效优化。实验表明求解器中的参数动态能响应不同采样阶段的ODE动态特性，为生成模型的快速采样提供了新方向。
+
+
 
 \subsection{更精确的似然或密度估计}
 
@@ -745,16 +673,17 @@ $\bar{\beta}_t=1-\bar{\alpha}_t$（$\bar{\alpha}_t$由(\ref{ddpm:bar_alpha})定�
 
 \subsection{精简网络架构设计}
 
+在文本生成图像的扩散模型研究领域中，架构设计的发展起到了至关重要的作用。早期的研究工作\cite{song2019generative, ho2020denoising}，主要依赖于UNet架构\cite{ronneberger2015u}。该架构以卷积操作为核心，通过一系列下采样和上采样阶段实现了从图像特征提取到图像重建的过程。具体而言，下采样阶段逐步降低了图像的空间分辨率，同时提取了高层次的语义信息；相反地，在上采样阶段，通过跳跃连接（skip connections）将低层次的空间细节与高层特征相结合，有效地恢复了图像的局部结构与纹理。中间阶段作为上下采样过程中的桥梁，通常由多个处理单元组成，负责深层次的特征转换与全局信息整合。尽管UNet在多尺度去噪任务中表现出色，但其基于局部感受野的卷积操作限制了对长程依赖关系的建模能力，并且未能有效结合外部条件信息，如文本提示，这在一定程度上限制了其在文本到图像生成任务中的应用。
+
+为解决上述问题，隐空间扩散模型（LDM）\cite{rombach2022high}提出了一种新的解决方案，旨在提升计算效率的同时增强对长程依赖关系以及外部条件信息的建模能力。LDM在继承UNet的多级上下采样结构和跳跃连接等核心设计的同时，创新地引入了注意力机制，特别是自注意力层和交叉注意力层的设计，前者用于捕捉图像内部的全局依赖关系，后者则实现了对外部文本条件的有效控制。此外，通过在残差块中融合时间步信息，LDM进一步增强了模型的时间动态建模能力。这种“条件化UNet”的范式被后续的工作广泛采用，并成为Stable Diffusion系列模型的基础。随着参数量的增加和训练策略的改进，例如SDXL\cite{podell2023sdxl}，该架构的性能得到了显著提升，逐渐成为了学术界和工业界的主流选择之一。
+
+近年来，随着视觉Transformer（ViT）\cite{dosovitskiy2020image} 的兴起，研究者们开始探索更加高效简洁的架构设计。UViT\cite{uvit} 便是这一趋势下的产物，它将Transformer模块应用于条件化UNet架构的中间阶段，取代了原有的卷积层，从而增强了模型的全局特征表示能力。尽管自注意力机制理论上具有较高的计算复杂度，但由于Transformer和MLP模块能够充分利用现代GPU/TPU的并行计算能力，因此在实际应用中仍能保持较高的计算效率。
+
+Diffusion Transformer（DiT）\cite{peebles2022scalable} 则代表了扩散模型架构设计的新方向，它完全放弃了传统的卷积结构。DiT采用了分块化的输入处理方法，将图像转换为非重叠的patch序列，这样既保留了Transformer处理序列数据的优势，又解决了高分辨率图像带来的计算挑战。核心模块DiT Block在保留标准Transformer Block（多头注意力机制+前馈网络）基本架构的同时，创新性地引入了自适应层归一化层（adaLN-Zero），该模块通过将时间步和文本提示词的特征向量作为条件输入，实现了对扩散过程时序动态的精确建模。最终，通过一个轻量级解码器将处理后的token特征转换回预测的噪声与协方差，完成了整个生成流程。这些创新使得DiT在提高图像生成质量和效率方面取得了显著进展，展示了扩散模型架构发展的新前景。
 
 
 
-在文生图扩散模型的发展过程中，架构设计的演进起到了关键作用。早期的UNet架构凭借其对称的编码器-解码器结构和跳跃连接，为扩散模型提供了处理多尺度图像特征的基础。随后，Latent Diffusion Model（LDM）在此基础上引入了自注意力机制以建模图像中的长程依赖关系，并通过交叉注意力机制实现了文本到图像的有效对齐，显著提升了生成图像与文本描述之间的语义一致性。这一架构被后续诸多模型所继承，最具代表性的便是Stable Diffusion系列模型。Stable Diffusion进一步优化了LDM的设计，在保证生成质量的同时提高了训练和推理效率，成为工业界与学术界的主流选择之一。近年来，随着Transformer在视觉领域的广泛应用，纯Transformer架构的扩散模型DiT（Diffusion with Transformers）应运而生。DiT完全摒弃传统卷积操作，仅依靠Transformer模块构建整个网络，利用其强大的全局建模能力实现高质量图像生成，标志着扩散模型进入了一个新的发展阶段。这些模型的演进不仅体现了技术架构的革新，也推动了文生图任务在生成质量、可控性与计算效率等方面的持续进步。
-
-早期的扩散模型（如DDPM）普遍采用UNet作为核心架构，其卷积结构与跳跃连接能有效处理图像的多尺度去噪任务，但受限于局部感受野，难以建模全局依赖。这一局限在Latent Diffusion Models（LDM）中得到突破：通过将扩散过程压缩至潜空间并引入注意力机制，LDM在UNet中融合了自注意力层（捕捉图像内部长程关系）和交叉注意力层（实现文本条件控制），形成了高效的"条件化UNet"范式。该设计被Stable Diffusion系列模型广泛采用，并通过扩大参数量（如SDXL）和优化训练策略持续提升性能。然而，随着视觉Transformer（ViT）的发展，研究者开始探索更简洁的架构——Diffusion Transformer（DiT）完全摒弃卷积，将图像分块输入纯Transformer网络，利用其固有的全局建模能力和可扩展性（如参数量与生成质量的线性关系），在ImageNet等基准上展现出媲美UNet的生成效果，标志着文生图模型架构从卷积主导迈向Transformer统一化的新趋势。
-
-【基于UNet（SDM）】
-
-UNet作为扩散模型的核心架构，通过多级下采样和上采样阶段实现特征提取与重建。其典型结构包含重复堆叠的残差块（ResBlock）和注意力块（Attention Block），其中下采样阶段逐步降低空间分辨率并提取高层语义特征，上采样阶段则通过跳跃连接融合浅层空间信息实现细节恢复。特别地，中间阶段（Mid-Stage）作为连接上采样与下采样的枢纽，通常由多个连续模块构成，负责特征转换与信息整合。这种设计虽能保证生成质量，但冗余的模块堆叠也带来了较高的计算开销。
+【针对UNet（LDM）的改进】
 
 针对上述问题，BK-SDM\cite{kim2023bk}提出了一种基于敏感度分析的分阶段剪枝策略。该方法首先在下采样阶段采用选择性剪枝策略，系统性地移除冗余的残差-注意力模块对，仅保留每个分辨率阶段的首组模块以处理关键的空间信息变换；同时在上采样阶段保留每个分辨率阶段的末组模块，确保跳跃连接的有效性。其次，通过实验验证发现中间阶段具有较高的冗余度，完全移除后对生成质量影响甚微。为验证剪枝策略的合理性，研究采用模块重要性评估方法，通过量化移除单个模块后生成性能的下降幅度来判定其重要性。实验结果表明，该策略在保持生成质量的同时，显著减少了30\%-50\%的参数量，有效实现了计算效率与模型性能的优化平衡。
 
@@ -766,9 +695,7 @@ EdgeFusion\cite{castells2024edgefusion}在BK-SDM轻量化架构的基础上，�
 
 SnapFusion\cite{li2023snapfusion}提出了一种高效的扩散模型优化框架，其核心包含两个关键创新：首先，该方法采用$\v$预测（$\v$-prediction）模式对UNet进行微调，通过建模噪声$\epsilon$与无噪声隐变量$\x$的线性组合$\v=\alpha_t\epsilon-\sigma_t\x$，显著提升了梯度传播的平滑性和多步去噪过程的稳定性；其次，创新性地提出了CFG（classifier-free guidance）感知的步数蒸馏策略，该策略通过动态调节分类器引导系数，在保持生成质量的同时实现生成多样性的灵活控制。基于渐进式蒸馏的思想，该方法最终将50步的原始模型高效压缩为仅需8步推理的轻量UNet模型，在保证生成质量的前提下实现了显著的加速效果。
 
-【基于U-Vit】
-
-UViT\cite{uvit}作为传统UNet架构的重要演进，在保留编码器-解码器结构和跨层跳跃连接等核心设计的同时，创新性地引入了Transformer模块以替代部分CNN层。该架构的关键创新在于：通过自注意力机制有效增强了模型的全局特征建模能力，显著提升了其在长距离依赖建模任务上的性能表现。尽管自注意力机制在理论上具有更高的计算复杂度，但由于Transformer和MLP模块主要由矩阵运算构成，这种计算特性使其能够充分利用GPU/TPU等现代加速器的并行计算能力，从而在实际应用中仍能保持较高的计算效率。
+【针对U-ViT的改进】
 
 Hu等人\cite{hu2024snapgen}提出轻量化扩散模型SnapGen，通过多项架构创新实现移动端高效文本生成图像。主要技术包括：（1）精简注意力机制，仅保留最低分辨率层的自注意力；（2）采用扩展可分离卷积\cite{howard2017mobilenets}模块，平衡计算效率与模型性能；（3）使用多查询注意力（MQA）\cite{shazeer2019fast}替代传统多头自注意力（MHSA），显著减少参数；（4）优化条件注入方式，在UNet首阶段引入交叉注意力；（5）精简FFN结构降低计算开销；（6）采用QK RMSNorm\cite{henry2020query,zhang2019root}防止softmax饱和并加速收敛，结合二维RoPE编码\cite{su2024roformer}消除高分辨率生成中的物体重复问题，两者计算开销几乎可忽略。这些技术使得该模型仅需0.38B参数即可在移动端实现1024×1024分辨率图像的快速生成。针对高分辨率图像生成中的解码器效率瓶颈，该研究通过移除注意力层、精简归一化层、采用深度可分离卷积等轻量化设计，显著降低了移动端部署时的内存占用。
 
@@ -780,9 +707,7 @@ MobileDiffusion\cite{zhao2024mobilediffusion}方法采用UViT网络，并对Tran
 
 Liu等人\cite{liu2024linfusion}针对扩散模型中自注意力层的二次计算复杂度问题，创新性地提出了LinFusion模块。该模块采用非因果归一化线性注意力机制，通过三个关键设计实现突破：首先，摒弃了传统序列建模中“当前状态只能依赖过去信息”的时序约束，建立任意位置间的直接交互机制，实现全局上下文的并行处理；其次，引入状态空间模型的隐式低秩投影技术，有效降低计算复杂度；最后，结合动态对角归一化（模拟softmax的概率分布特性），在保持注意力表达能力的同时将计算复杂度降至线性。在模型微调阶段，该方法仅需训练LinFusion模块参数，并创新性地结合噪声预测损失与双重知识蒸馏损失（分别对齐模型最终输出和层级特征）。这一工作实现了扩散模型中自注意力层的线性复杂度替代，为高清图像生成提供了新思路。【该模块可用于UNet或U-ViT】
 
-【基于DiT】
-
-DiT\cite{peebles2022scalable}作为扩散模型领域的重要架构创新，其设计包含三个关键组成部分。首先，模型采用分块化处理（patchify）将输入图像转换为非重叠的patch序列，这一预处理步骤既保留了Transformer处理序列数据的固有优势，又缓解了高分辨率图像带来的计算复杂度问题。其次，在核心模块设计上，DiT Block在保留标准Transformer Block（多头注意力机制+前馈网络）基本架构的同时，创新性地引入了自适应层归一化层（adaLN-Zero），该模块通过将时间步和文本提示词的特征向量作为条件输入，实现了对扩散过程时序动态的精确建模。最后，模型通过轻量级解码器将处理后的token空间特征转换回预测的噪声与协方差，完成整个生成过程。这些设计使得DiT在保持Transformer强大表征能力的同时，显著提升了生成图像的质量和效率。
+【针对DiT的改进】
 
 SANA\cite{xie2024sana}在DiT架构和LDM训练范式基础上进行了系统性创新：首先设计了更高压缩率的自编码器，显著提升了训练效率并支持超清图像生成；其次提出线性DiT架构，通过线性注意力替代原始自注意力提升计算效率，同时引入含3×3深度可分离卷积的Mix-FFN模块增强局部特征建模，实现了无位置编码（NoPE）设计；在文本理解方面，采用Gemma大语言模型\cite{team2024gemma}作为编码器，并基于其上下文学习能力设计了复杂人类指令（CHI）机制，大幅提升了提示词理解能力；最后通过多视觉语言模型协同标注优化训练数据，结合基于流的训练方法\cite{liu2022flow,karras2022elucidating}和Flow-DPM-Solver，在仅需14-20步推理采样的情况下仍保持优异生成质量。这些改进使模型在训练效率、推理速度和生成质量等方面均取得显著提升。
 
@@ -824,6 +749,7 @@ EdgeFusion提出的模型级分块（Model-Level Tiling，MLT）方法通过将U
 SANA提出通过Triton（Tillet et al., 2019）融合线性注意力前向/反向传播的核函数，将激活函数、精度转换等操作整合至矩阵乘法，减少数据传输开销。
 
 
+\iffalse
 \newpage
 
 \subsection{优化模型结构与计算}
@@ -888,9 +814,10 @@ MobileDiffusion\cite{zhao2024mobilediffusion}在UFOGen框架基础上进行了�
 ADD\cite{sauer2024adversarial}，LADD\cite{sauer2024fast}
 
 SnapGen\cite{hu2024snapgen}参考了LADD方法，它以SD3.5-Large-Turbo为教师模型，通过步数蒸馏（Step Distillation）进一步提升采样效率。
+\fi
 
 
-
+\iffalse
 \section{文生视频扩散模型}
 
 VideoLDM\cite{blattmann2023videoldm}
@@ -906,17 +833,123 @@ Video Diffusion Model\cite{ho2022video}
 Make-a-video\cite{singer2022make}
 
 Imagen video: High definition video generation with diffusion models
+\fi
 
 \newpage
 \bibliography{ref}
 
 \newpage
-\appendix
-
-
-\section{此处为附录}
 
 
 
+\begin{appendices}
+
+\section{DDPM的变分下界（ELBO）推导}
+\label{app:ddpm_elbo}
+
+从概率建模的角度，DDPM训练过程的核心在于通过最大化数据对数似然的变分下界（Evidence Lower Bound, ELBO）来实现模型优化。具体而言，给定数据样本$\x_0\sim q(\x_0)$，反向过程生成$\x_0$的对数似然为$\log p_{\theta}(\x_0)$，其变分下界推导如下：
+\begin{align}
+\begin{split}
+    \log p_{\theta}(\x_0) &= \log \int p_{\theta}(\x_0,\cdots,\x_T)d\x_{1:T} \\
+    &= \log \int p_{\theta}(\x_0,\cdots,\x_T)\frac{q(\x_1,\cdots,\x_T|\x_0)}{q(\x_1,\cdots,\x_T|\x_0)}d\x_{1:T} \\
+    &= \log \int q(\x_1,\cdots,\x_T|\x_0)\frac{p_{\theta}(\x_0,\cdots,\x_T)}{q(\x_1,\cdots,\x_T|\x_0)}d\x_{1:T} \\
+    &= \log \E_q \left[\frac{p_{\theta}(\x_0,\cdots,\x_T)}{q(\x_1,\cdots,\x_T|\x_0)}\right]  \geq \E_q \left[\log \frac{p_{\theta}(\x_0,\cdots,\x_T)}{q(\x_1,\cdots,\x_T|\x_0)}\right].
+\end{split}
+\label{ddpm:1}
+\end{align}
+上面最后一个不等式基于的Jensen不等式。此外，由前向和反向过程的马尔可夫性质，即
+\begin{align*}
+    p_{\theta}(\x_0,\cdots,\x_T) &= p_{\theta}(\x_T)p_{\theta}(\x_0|\x_1)\prod_{t=2}^T p_{\theta}(\x_{t-1}|\x_t),\\
+    q(\x_1,\cdots,\x_T|\x_0) &= q(\x_T|\x_{T-1})\prod_{t=1}^{T-1}q(\x_t|\x_{t-1}),
+\end{align*}
+我们可以进一步对(\ref{ddpm:1})进行展开，得到：
+\begin{align}
+\begin{split}
+    &\log p_{\theta}(\x_0) \geq \E_q \left[\log \frac{p_{\theta}(\x_0,\cdots,\x_T)}{q(\x_1,\cdots,\x_T|\x_0)}\right] \\
+    &= \E_q \left[\log\frac{p_{\theta}(\x_T)p_{\theta}(\x_0|\x_1)\prod_{t=2}^T p_{\theta}(\x_{t-1}|\x_t)}{q(\x_T|\x_{T-1})\prod_{t=1}^{T-1}q(\x_t|\x_{t-1})} \right] \\
+    &= \E_q \left[\log\frac{p_{\theta}(\x_T)p_{\theta}(\x_0|\x_1)\prod_{t=1}^{T-1} p_{\theta}(\x_{t}|\x_{t+1})}{q(\x_T|\x_{T-1})\prod_{t=1}^{T-1}q(\x_t|\x_{t-1})} \right] \\
+    &= \E_q\left[\log\frac{p_{\theta}(\x_T)p_{\theta}(\x_0|\x_1)}{q(\x_T|\x_{T-1})} \right] + \E_q\left[\log\prod_{t=1}^{T-1}\frac{p_{\theta}(\x_{t}|\x_{t+1})}{q(\x_t|\x_{t-1})} \right] \\
+    &= \E_q[\log p_{\theta}(\x_0|\x_1)] - \E_q[\text{KL}(q(\x_T|\x_{T-1}) \| p_{\theta}(\x_T))] -\Sigma_{t=1}^{T-1}\E_q[\text{KL}(q(\x_t|\x_{t-1}) \| p_{\theta}(\x_{t}|\x_{t+1}))],
+\end{split}
+\label{ddpm:2}
+\end{align}
+上面最后一个等式来自于KL散度的定义。此外，由于$p_{\theta}(\x_T)$的计算不需要扩散模型参与，实际上没有可学习参数，所以可以视为一个常数const。最终，我们可以得到如下简化的变分下界：
+\begin{equation}
+\log p_{\theta}(\x_0) \geq \E_q[\log p_{\theta}(\x_0|\x_1)]  -\Sigma_{t=1}^{T-1}\E_q[\text{KL}(q(\x_t|\x_{t-1}) \| p_{\theta}(\x_{t}|\x_{t+1}))] + \text{const}
+\label{ddpm:elbo_old}
+\end{equation}
+
+当我们仔细观察上面的$\E_q[\text{KL}(q(\x_t|\x_{t-1}) \| p_{\theta}(\x_{t}|\x_{t+1}))]$项时，会发现该期望计算非常困难。具体来说，我们需要从分布$q(\x_{t-1},\x_{t+1}|\x_0)$中采样$\x_{t-1}$和$\x_{t+1}$来计算期望，而该分布的具体形式未知。为了解决这个问题，我们可以使用若干由$q$函数定义的前向转移函数\emph{模拟出}一个\emph{反向转移函数}来替代$q(\x_t|\x_{t-1})$，由于这个新的反向转移函数具有和$p_{\theta}(\x_t|\x_{t+1})$相同的方向，所以期望的计算可以大大简化。具体地，我们由贝叶斯定理，可得：
+\begin{equation*}
+    q(\x_t|\x_{t-1})=\frac{q(\x_{t-1}|\x_t)q(\x_t)}{q(\x_{t-1})},
+\end{equation*}
+又因为$\x_{t-1}$实际上是前向过程中由$\x_0$产生的，所以$\x_{t-1}$的分布依赖于$\x_0$，故我们将上式替换成下面的基于$\x_0$的形式：
+\begin{equation}
+    q(\x_t|\x_{t-1},\x_0)=\frac{q(\x_{t-1}|\x_t,\x_0)q(\x_t|\x_0)}{q(\x_{t-1}|\x_0)}.
+\label{ddpm:bayes}
+\end{equation}
+可以看出上式中的$q(\x_{t-1}|\x_t,\x_0)$实际上就是我们想要的\emph{反向转移函数}。此时，我们可以根据(\ref{ddpm:1})推导出$\log p_{\theta}(\x_0)$的新变分下界如下：
+\begin{align}
+\begin{split}
+    \log p_{\theta}(\x_0) & \geq \E_q \left[\log \frac{p_{\theta}(\x_0,\cdots,\x_T)}{q(\x_1,\cdots,\x_T|\x_0)}\right]= \E_q \left[\log\frac{p_{\theta}(\x_T)p_{\theta}(\x_0|\x_1)\prod_{t=2}^T p_{\theta}(\x_{t-1}|\x_t)}{q(\x_1|\x_0)\prod_{t=2}^T q(\x_t|\x_{t-1},\x_0)} \right] \\
+    &= \E_q \left[\log\frac{p_{\theta}(\x_T)p_{\theta}(\x_0|\x_1)}{q(\x_1|\x_0)} \right] + \E_q \left[\log \prod_{t=2}^T \frac{p_{\theta}(\x_{t-1}|\x_t)}{q(\x_t|\x_{t-1},\x_0)} \right].
+\end{split}
+\label{ddpm:3}
+\end{align}
+
+随后，我们将(\ref{ddpm:bayes})代入(\ref{ddpm:3})的第二项，可得：
+\begin{align}
+\begin{split}
+    &\prod_{t=2}^T \frac{p_{\theta}(\x_{t-1}|\x_t)}{q(\x_t|\x_{t-1},\x_0)} = \prod_{t=2}^T \frac{p_{\theta}(\x_{t-1}|\x_t)}{\frac{q(\x_{t-1}|\x_t,\x_0)q(\x_t|\x_0)}{q(\x_{t-1}|\x_0)}} \\
+    &= \prod_{t=2}^T \frac{p_{\theta}(\x_{t-1}|\x_t)}{q(\x_{t-1}|\x_t,\x_0)}  \times \prod_{t=2}^T \frac{q(\x_{t-1}|\x_0)}{q(\x_t|\x_0)} = \prod_{t=2}^T \frac{p_{\theta}(\x_{t-1}|\x_t)}{q(\x_{t-1}|\x_t,\x_0)}  \times \frac{q(\x_1|\x_0)}{q(\x_T|\x_0)},
+\end{split}
+\label{ddpm:4}
+\end{align}
+其中最后一个等式成立是因为对任意序列$a_1,a_2,\cdots,a_T$，有$\prod_{t=2}^T\frac{a_{t-1}}{a_t}=\frac{a_1}{a_2}\times\frac{a_2}{a_3}\times\cdots\times\frac{a_{T-1}}{a_T}=\frac{a_1}{a_T}$。随后我们将(\ref{ddpm:4})代入(\ref{ddpm:3})中，可得：
+\begin{align}
+\begin{split}
+    & \E_q \left[\log\frac{p_{\theta}(\x_T)p_{\theta}(\x_0|\x_1)}{q(\x_1|\x_0)} \right] + \E_q \left[\log \prod_{t=2}^T \frac{p_{\theta}(\x_{t-1}|\x_t)}{q(\x_t|\x_{t-1},\x_0)} \right] \\
+    &= \E_q \left[\log\frac{p_{\theta}(\x_T)p_{\theta}(\x_0|\x_1)}{q(\x_1|\x_0)} \right] + \E_q \left[\log \left(\prod_{t=2}^T \frac{p_{\theta}(\x_{t-1}|\x_t)}{q(\x_{t-1}|\x_t,\x_0)}  \times \frac{q(\x_1|\x_0)}{q(\x_T|\x_0)}\right) \right] \\
+    &=\E_q \left[\log\frac{p_{\theta}(\x_T)p_{\theta}(\x_0|\x_1)}{q(\x_1|\x_0)} + \log \frac{q(\x_1|\x_0)}{q(\x_T|\x_0)} \right] + \E_q \left[\log \prod_{t=2}^T \frac{p_{\theta}(\x_{t-1}|\x_t)}{q(\x_{t-1}|\x_t,\x_0)}  \right] \\
+    &= \E_q \left[\log\frac{p_{\theta}(\x_T)p_{\theta}(\x_0|\x_1)}{q(\x_T|\x_0)} \right] + \E_q \left[\log \prod_{t=2}^T \frac{p_{\theta}(\x_{t-1}|\x_t)}{q(\x_{t-1}|\x_t,\x_0)}  \right] \\
+    &= \E_q [p_{\theta}(\x_0|\x_1)] + \E_q\left[\frac{p_{\theta}(\x_T)}{q(\x_T|\x_0)}\right] + \Sigma_{t=2}^T \E_q \log \frac{p_{\theta}(\x_{t-1}|\x_t)}{q(\x_{t-1}|\x_t,\x_0)} \\
+    &= \E_q [p_{\theta}(\x_0|\x_1)] -\text{KL}(q(\x_T|\x_0)\| p_{\theta}(\x_T)) -  \Sigma_{t=2}^T \text{KL}(q(\x_{t-1}|\x_t,\x_0) \| p_{\theta}(\x_{t-1}|\x_t)),
+\end{split}
+\label{ddpm:5}
+\end{align}
+其中我们在最后一个等式中使用了KL散度的定义。由于上式中$p_{\theta}(\x_T)$不需要学习，所以$\text{KL}(q(\x_T|\x_0)\| p_{\theta}(\x_T))$可以视作常数，因此，我们可以得到下面的数据对数似然$\log p_{\theta}(\x_0)$的变分下界：
+\begin{equation}
+\log p_{\theta}(\x_0) \geq \E_q [\log p_{\theta}(\x_0|\x_1)] -  \Sigma_{t=2}^T \text{KL}(q(\x_{t-1}|\x_t,\x_0) \| p_{\theta}(\x_{t-1}|\x_t)) + \text{const}.
+\label{ddpm:elbo}
+\end{equation}
+可以看出，计算(\ref{ddpm:elbo})中的KL项（本质上是期望）所需的$\x_t$和$\x_0$实际上可以从分布$q(\x_t|\x_0)$中采样得到，该分布具有简洁的形式，因此(\ref{ddpm:elbo})相比前面提到的(\ref{ddpm:elbo_old})计算上简单很多。
+
+\section{DDPM中$q(\x_{t-1}|\x_t,\x_0)$的推导}
+\label{app:ddpm_forward_posterior_distribution}
+
+下一步我们要确定$q(\x_{t-1}|\x_t,\x_0)$的具体形式。由(\ref{ddpm:bayes})可知，$q(\x_{t-1}|\x_t,\x_0)$由$q(\x_{t}|\x_{t-1},\x_0)$、$q(\x_{t-1}|\x_0)$和$q(\x_{t}|\x_0)$决定，而由扩散模型前向过程的定义可知，这三项的表达式分别为：
+\begin{align*}
+    q(\x_{t}|\x_{t-1},\x_0) &= \N(\x_t|\sqrt{\alpha_t}\x_{t-1},(1-\alpha_t)\mathbf{I}),  \\
+    q(\x_{t-1}|\x_0) &= \N(\x_{t-1}|\sqrt{\bar{\alpha}_{t-1}}\x_0,(1-\bar{\alpha}_{t-1})\mathbf{I}), \\
+    q(\x_{t}|\x_0) &=\N(\x_{t}|\sqrt{\bar{\alpha}_{t}}\x_0,(1-\bar{\alpha}_{t})\mathbf{I}),
+\end{align*}
+所以，由(\ref{ddpm:bayes})，我们可以得到
+\begin{equation}
+    q(\x_{t-1}|\x_t,\x_0) = \frac{\N(\x_t|\sqrt{\alpha_t}\x_{t-1},(1-\alpha_t)\mathbf{I})\N(\x_{t-1}|\sqrt{\bar{\alpha}_{t-1}}\x_0,(1-\bar{\alpha}_{t-1})\mathbf{I})}{\N(\x_{t}|\sqrt{\bar{\alpha}_{t}}\x_0,(1-\bar{\alpha}_{t})\mathbf{I})}.
+\label{ddpm:dist_of_reverse_pre}
+\end{equation}
+
+随后，我们实际上可以证明$q(\x_{t-1}|\x_t,\x_0)$也服从高斯分布，并具有$\N(\x_{t-1}|\A\x_t+\B\x_0,\C\mathbf{I})$的形式，为了确认$\A$，$\B$和$\C$的具体形式，我们可以首先将($\ref{ddpm:dist_of_reverse_pre}$)中右侧三个高斯分布的乘积转化为指数之和，随后可以通过求一次导和二次导得到$\A$，$\B$和$\C$。这里我们省略具体过程，$q(\x_{t-1}|\x_t,\x_0)$的最后形式如下：
+\begin{align}
+\begin{split}
+    q(\x_{t-1}|\x_t,\x_0) &= \N(\x_{t-1}|\mu_q(\x_t,\x_0),\Sigma_q(t)),\\
+    \mu_q(\x_t,\x_0) &= \frac{(1-\bar{\alpha}_{t-1})\sqrt{\alpha_t}}{1-\bar{\alpha}_t}\x_t + \frac{(1-\alpha_t)\sqrt{\bar{\alpha}_{t-1}}}{1-\bar{\alpha}_t}\x_0 \\
+    \Sigma_q(t) &= \frac{(1-\alpha_t)(1-\bar{\alpha}_{t-1})}{1-\bar{\alpha}_t}\mathbf{I}  \stackrel{\text{def}}{=} \sigma_q^2(t)\mathbf{I},
+\end{split}
+\label{ddpm:dist_of_reverse}
+\end{align}
+其中$\bar{\alpha}_t=\Pi_{i=1}^t \alpha_i$。
+
+\end{appendices}
 
 \end{document}
