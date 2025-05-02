@@ -653,6 +653,7 @@ $\bar{\beta}_t=1-\bar{\alpha}_t$（$\bar{\alpha}_t$由(\ref{ddpm:bar_alpha})定�
 \end{equation*}
 其中$Q_{\z_t}$投影自噪声数据$\z_t$，$K_{\c}$和$V_{\c}$投影自文本信息$\c$，$d$是特征维度。ResNet模块在UNet中用于捕捉局部空间特征。ResNet与交叉注意力的结合，正是扩散模型兼顾全局语义与局部真实性的关键设计。图\ref{fig:latency_params_unet}对比了该网络各层的延时与参数量，可以看出参数主要集中在UNet中段，这是由于通道维度的扩展所致，其中ResNet块占据了绝大部分比例。相比之下，UNet中速度最慢的部分是输入和输出阶段，这些层级具有最大的特征分辨率，因为空间交叉注意力的计算复杂度与特征尺寸（在ViT中被量化为token数量）呈平方关系。
 
+\newpage
 
 \section{端侧部署的关键技术}
 
