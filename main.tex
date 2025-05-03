@@ -630,7 +630,7 @@ $\bar{\beta}_t=1-\bar{\alpha}_t$（$\bar{\alpha}_t$由(\ref{ddpm:bar_alpha})定�
 
 Diffusion Transformer（DiT）\cite{peebles2022scalable} 则把扩散模型架构推向了新的方向。DiT完全摒弃了传统卷积结构，采用分块化输入处理方式——将图像切分为不重叠的patch序列，既保留了Transformer对序列数据的强大建模能力，又减轻了高分辨率输入带来的计算压力。其核心DiT Block以标准Transformer Block为基础（多头注意力加前馈网络），创新性地融入自适应层归一化（adaLN-Zero），通过将时间步与文本提示的特征作为条件输入，实现对扩散过程时序动态的精细调控。最终，解码器将处理后的token特征转回噪声和协方差预测，顺利完成生成流程。这些设计创新不仅大幅提升了图像生成质量和效率，也为扩散模型架构的未来发展开辟了新方向。我们在图\ref{fig:dit}中展示了DiT的结构。
 
-稳定扩散模型（Stable Diffusion Models，SDMs）\cite{rombach2022high}是T2I合成领域最著名的开源模型之一，其卓越的生成能力已开始作为核心架构被应用于多项文本引导的视觉任务\cite{blattmann2023videoldm,brooks2023instructpix2pix,wang2023score,zhang2023adding}。SDMs本质上是专精于T2I的潜在扩散模型（LDMs）\cite{rombach2022high}，通过在语义压缩空间执行扩散过程\cite{ho2022classifier,liu2021pseudo,song2020denoising}来提升计算效率。该模型可采用条件UNet或DiT架构对随机潜在编码进行迭代采样去噪，并配合文本编码器\cite{radford2021learning}与图像解码器\cite{esser2021taming,van2017neural}生成文本对齐的图像。我们在图\ref{fig:sdm}中展示了SDM的结构以及推理结构。
+作为LDM架构的成功实践，稳定扩散模型（Stable Diffusion Models，SDMs）\cite{rombach2022high}是T2I合成领域最著名的开源模型之一，其卓越的生成能力已开始作为核心架构被应用于多项文本引导的视觉任务\cite{blattmann2023videoldm,brooks2023instructpix2pix,wang2023score,zhang2023adding}。SDMs本质上是专精于T2I的潜在扩散模型（LDMs）\cite{rombach2022high}，通过在语义压缩空间执行扩散过程\cite{ho2022classifier,liu2021pseudo,song2020denoising}来提升计算效率。该模型可采用条件UNet或DiT架构对随机潜在编码进行迭代采样去噪，并配合文本编码器\cite{radford2021learning}与图像解码器\cite{esser2021taming,van2017neural}生成文本对齐的图像。我们在图\ref{fig:sdm}中展示了SDM的结构以及推理结构。
 
 \begin{figure}[htbp]
 \centering
@@ -639,51 +639,7 @@ Diffusion Transformer（DiT）\cite{peebles2022scalable} 则把扩散模型架�
 \label{fig:sdm}
 \end{figure}
 
-下面我们先阐述SDM的文生图的详细过程，随后介绍SDM中核心的去噪UNet网络的结构。SDM的文生图过程如图\ref{fig:sdm}所示，它是一个多阶段的生成流程：首先，用户输入的文本提示通过预训练且冻结的CLIP文本编码器转换为文本条件表征；与此同时，模型从标准高斯分布$\N(\mathbf{0},\mathbf{I})$采样初始噪声隐变量，并将离散时间步$t\in\{0,1,\cdots,T\}$编码为连续的时间步嵌入向量。这些信息（文本表征、噪声隐变量和时间步嵌入）共同输入到条件去噪UNet中，该网络通过$T$次迭代在文本条件的引导下逐步修正隐变量——每次迭代预测当前噪声并更新隐变量，使其逐渐逼近目标语义对应的隐空间分布。最终，优化后的隐变量通过VAE解码器映射到像素空间，生成符合用户需求的高分辨率图像。
-
-
-
-\newpage
-
-\iffalse
-稳定扩散模型（Stable Diffusion Models，SDMs）\cite{rombach2022high}是T2I合成领域最著名的开源模型之一，其卓越的生成能力已开始作为核心架构被应用于多项文本引导的视觉任务\cite{blattmann2023videoldm,brooks2023instructpix2pix,wang2023score,zhang2023adding}。SDMs本质上是专精于T2I的潜在扩散模型（LDMs）\cite{rombach2022high}，通过在语义压缩空间执行扩散过程\cite{ho2022classifier,liu2021pseudo,song2020denoising}来提升计算效率。该模型采用U-Net架构\cite{ronneberger2015u,dhariwal2021diffusion}对随机潜在编码进行迭代采样去噪，并配合文本编码器\cite{radford2021learning}与图像解码器\cite{esser2021taming,van2017neural}生成文本对齐的图像。
-
-\begin{figure}[htbp]
-    \centering
-    \begin{subfigure}[b]{0.49\textwidth}
-        \centering
-        \includegraphics[width=\linewidth]{img/SDM.jpg}
-        \caption{稳定扩散模型（SDM）的推理过程}
-        \label{fig:sdm}
-    \end{subfigure}
-    \hfill
-    \begin{subfigure}[b]{0.49\textwidth}
-        \centering
-        \includegraphics[width=\linewidth]{img/denoising-unet.jpg}
-        \caption{去噪UNet的网络结构}
-        \label{fig:unet}
-    \end{subfigure}
-    \caption{稳定扩散模型的推理与结构}
-    \label{fig:sdm&unet}
-\end{figure}
-
-下面我们先阐述SDM的文生图的详细过程，随后介绍SDM中核心的去噪UNet网络的结构。SDM的文生图过程如图\ref{fig:sdm}所示，它是一个多阶段的生成流程：首先，用户输入的文本提示通过预训练且冻结的CLIP文本编码器转换为文本条件表征；与此同时，模型从标准高斯分布$\N(\mathbf{0},\mathbf{I})$采样初始噪声隐变量，并将离散时间步$t\in\{0,1,\cdots,T\}$编码为连续的时间步嵌入向量。这些信息（文本表征、噪声隐变量和时间步嵌入）共同输入到条件去噪UNet中，该网络通过$T$次迭代在文本条件的引导下逐步修正隐变量——每次迭代预测当前噪声并更新隐变量，使其逐渐逼近目标语义对应的隐空间分布。最终，优化后的隐变量通过VAE解码器映射到像素空间，生成符合用户需求的高分辨率图像。
-
-去噪UNet结构如图\ref{fig:unet}所示，它采用了经典的编码器-解码器设计，形成对称的U形结构，其核心由多层ResNet模块和注意力机制组成。该网络接收带噪声的隐变量作为输入，通过左侧编码器部分的ResNet和Attention模块进行特征提取和降采样，同时文本表征和时间步嵌入被输入到各层模块中提供上下文信息；在U形结构底部达到最深特征表示后，右侧解码器部分通过ResNet和Attention模块进行特征重建和上采样，而图中虚线表示的连接机制将编码器对应层的特征直接传递到解码器对应层，有效保留细节信息。整个计算流程形成了一个端到端的噪声预测网络，最终输出预测的噪声，这种结合条件信息和时间步信息的架构设计使得去噪UNet能够有效学习噪声分布特征，在扩散模型等领域展现出优异性能。
-\fi
-
-\subsection{训练数据准备}
-
-
-\subsection{模型测试基准}
-
-
-\newpage
-
-
-
-在下面介绍SDM的主流加速方法之前，我们先系统剖析SDM各个步骤的计算特征、参数分布及延时特性，为后续讨论奠定基础。这里我们主要使用来自Li等人在\cite{li2023snapfusion}中呈现的结果。他们对Stable Diffusion v1.5（SD-v1.5）\footnote{https://huggingface.co/stable-diffusion-v1-5/stable-diffusion-v1-5}模型各层的参数量与计算量展开全面研究。这项深度分析有助于从网络架构与算法范式的角度，理解文生图扩散模型在移动设备上部署的核心瓶颈。
-
+下面我们先阐述SDM的文生图的详细过程，随后介绍SDM中核心的去噪UNet网络的结构。SDM的文生图过程如图\ref{fig:sdm}所示，它是一个多阶段的生成流程：首先，用户输入的文本提示通过预训练且冻结的CLIP文本编码器转换为文本条件表征；与此同时，模型从标准高斯分布$\N(\mathbf{0},\mathbf{I})$采样初始噪声隐变量，并将离散时间步$t\in\{0,1,\cdots,T\}$编码为连续的时间步嵌入向量。这些信息（文本表征、噪声隐变量和时间步嵌入）共同输入到条件去噪网络（可以是条件UNet或DiT）中，该网络通过$T$次迭代在文本条件的引导下逐步修正隐变量——每次迭代预测当前噪声并更新隐变量，使其逐渐逼近目标语义对应的隐空间分布。最终，优化后的隐变量通过VAE解码器映射到像素空间，生成符合用户需求的高分辨率图像。
 
 \begin{figure}[htbp]
     \centering
@@ -704,13 +660,25 @@ Diffusion Transformer（DiT）\cite{peebles2022scalable} 则把扩散模型架�
     \label{fig:sd_v15}
 \end{figure}
 
-正如图\ref{fig:sdm}所展示的那样，SDM主要包含三个主要模块：文本编码器、去噪UNet和VAE解码器。图\ref{fig:latency_three}展示了这三个模块各自的参数量和延时。SD-v1.5中文本编码器是ViT-H模型\cite{radford2021learning}。由于该文生图模型采用无分类器引导，所以由(\ref{conditional_classifier_free_guided})可知，该文本编码器在生成每张图片时执行2次（一次输入为文本提示词输出条件表征，一次输入空串输出无条件表征），该部分仅占推理延迟的极小一部分（8毫秒）。VAE解码器负责将潜在特征生成图像，运行时延为369毫秒。与前两者不同的是，去噪UNet计算量极大（单步延迟为1.7秒），并且需要多次迭代前向传播以保证生成质量。
+在下一节介绍SDM的主流加速方法之前，本文先系统剖析SDM各组成模块与关键步骤的计算特性、参数分布及延时特性，为后续讨论高效部署的挑战和对策奠定基础。相关分析主要参考Li等人于\cite{li2023snapfusion}中对SDM架构的深度剖析，特别是Stable Diffusion v1.5（SD-v1.5）\footnote{https://huggingface.co/stable-diffusion-v1-5/stable-diffusion-v1-5}各层参数和算力消耗的量化结果。这些分析不仅为理解文生图扩散模型的瓶颈提供了数据支撑，还为后续在移动端等资源受限环境下的优化奠定了基础。
 
-下面我们对去噪UNet的内部结构进行解析。该网络的内部结构如图\ref{fig:unet}所示，网络的核心是（交叉）注意力模块和ResNet模块。交叉注意力模块的作用是在每个阶段将文本信息融合到图像信息中，具体计算方式为：
+如图\ref{fig:sdm}所示，SDM主要包括三个核心模块：文本编码器、去噪网络以及VAE解码器。图\ref{fig:latency_three}从参数量和延迟两方面对这三大模块进行了定量分析。具体而言，SD-v1.5中的文本编码器采用的是ViT-H模型\cite{radford2021learning}。由于该扩散模型实现的是无分类器引导（classifier-free guidance），根据公式(\ref{conditional_classifier_free_guided})，文本编码器每次生成图像时需执行两次：分别以文本提示词与空串为输入，输出有条件与无条件表征。尽管如此，该部分仅占推理总延迟的极小一部分（约8毫秒），影响微弱。相比之下，VAE解码器负责将压缩的潜在编码重构为最终图像，延时约为369毫秒，主要由解码的复杂性决定。与上述两者不同，去噪UNet的计算规模和复杂度远高于其它模块——其单步延迟高达1.7秒，并且生成过程依赖多次迭代前向传播，由此成为影响整体推理速度的性能瓶颈。
+
+下面我们基于图\ref{fig:c-unet}来对条件UNet的内部结构进行解析，该网络的核心是注意力模块和残差模块。交叉注意力模块的作用是在每个阶段将文本信息融合到图像信息中，具体计算方式为：
 \begin{equation*}
     \text{Cross-Attention}(Q_{\z_t},K_{\c},V_{\c})=\text{Softmax}\left(\frac{Q_{\z_t}\cdot K_{\c}^{\top}}{\sqrt{d}}\right)\cdot V_{\c},
 \end{equation*}
-其中$Q_{\z_t}$投影自噪声数据$\z_t$，$K_{\c}$和$V_{\c}$投影自文本信息$\c$，$d$是特征维度。ResNet模块在UNet中用于捕捉局部空间特征。ResNet与交叉注意力的结合，正是扩散模型兼顾全局语义与局部真实性的关键设计。图\ref{fig:latency_params_unet}对比了该网络各层的延时与参数量，可以看出参数主要集中在UNet中段，这是由于通道维度的扩展所致，其中ResNet块占据了绝大部分比例。相比之下，UNet中速度最慢的部分是输入和输出阶段，这些层级具有最大的特征分辨率，因为空间交叉注意力的计算复杂度与特征尺寸（在ViT中被量化为token数量）呈平方关系。
+其中$Q_{\z_t}$投影自噪声数据$\z_t$，$K_{\c}$和$V_{\c}$投影自文本信息$\c$，$d$是特征维度。通过交叉注意力机制，模型能够在不同尺度实现图文有效对齐。而残差模块则专注于局部空间特征的提取和保留。二者的结合，使得扩散模型能够兼顾全局语义理解与高保真的细节还原，共同支撑生成图像的真实性与丰富性。
+
+图\ref{fig:latency_params_unet}进一步对比了条件UNet不同层的延迟与参数分布。从结果可见，参数主要集中于网络中间阶段，这是由于通道维度的扩展所致，其中残差块占据了绝大部分比例。而在速度上，条件UNet的输入与输出阶段耗时最大，其根本原因在于这些阶段特征分辨率最高，而空间交叉注意力机制的计算复杂度与特征尺寸（即ViT中的token数量）呈平方关系，带来指数级的计算压力。因此，这一低效环节成为进一步优化SDM模型推理性能的关键突破口。
+
+\subsection{训练数据准备}
+
+
+\subsection{模型测试基准}
+
+
+
 
 \newpage
 
