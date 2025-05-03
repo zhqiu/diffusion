@@ -685,7 +685,20 @@ Diffusion Transformer（DiT）\cite{peebles2022scalable} 则把扩散模型架�
 
 随着文生图技术的快速发展，扩散模型因其高质量的生成效果和训练稳定性成为研究热点。然而，如何客观评估扩散模型的性能仍面临挑战。本文围绕三类核心评估指标——Inception Score（IS）\cite{salimans2016improved}、Fr\'echet Inception Distance（FID）\cite{dowson1982frechet}和CLIP分数，系统综述其计算原理、应用场景及局限性，并探讨其在扩散模型评估中的适用性。
 
+IS：
+\begin{equation*}
+    \text{IS} =\exp(\E_{\x}[\text{KL}(p(y|\x))\|p(y)])
+\end{equation*}
 
+FID：
+\begin{equation*}
+    \text{FID}=\|m-m_w \|^2 + \text{Tr}(C+C_w-2\sqrt{CC_w})
+\end{equation*}
+
+CLIP分数：
+\begin{equation*}
+    \text{CLIP score}=\E_{(\x,\t)}\left[\frac{f_I(\x)\cdot f_T(\t)}{\|f_I(\x)\|\cdot\|f_T(\t)\|}\right]
+\end{equation*}
 
 
 \newpage
