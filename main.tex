@@ -61,9 +61,16 @@
 \end{equation}
 其中$\alpha_t:=1-\beta_t$，$\bar{\alpha}_t:=\prod_{s=0}^t\alpha_s$。可以看出，上式实际上允许我们通过重参数化技巧（reparameterization trick）进行高效采样，即对于标准高斯噪声$\epsilon\in\N(0,\mathbf{I})$，$\x_t$的采样可表示为：
 \begin{equation*}
-    \x_t=\sqrt{\bar{\alpha}_t}\x_0 + (1-\bar{\alpha}_t)\epsilon.
+    \x_t=\sqrt{\bar{\alpha}_t}\x_0 + \sqrt{1-\bar{\alpha}_t}\epsilon.
 \end{equation*}
 值得注意的是，当$T$足够大时，$\bar{\alpha}_T\approx 0$，使得边缘分布$q(\x_T)=\int q(\x_T|\x_0)q(\x_0)d\x_0$渐进收敛于标准高斯分布$\N(\mathbf{0},\mathbf{I})$，从而满足前向过程将数据完全扩散为噪声的设计目标。
+
+\begin{figure}[tbp]
+\centering
+\includegraphics[width=0.8\textwidth]{img/DDPM.jpg}
+\caption{DDPM的前向过程与反向过程}
+\label{fig:ddpm}
+\end{figure}
 
 从直观上看，前向扩散过程通过逐步注入噪声使数据结构性信息持续衰减，最终退化为无结构噪声。为了实现数据生成，DDPM首先从先验分布$p(\x_T)=\N(\x_T;\mathbf{0},\mathbf{I})$采样纯噪声（该设定的合理性源于前向过程保证$q(\x_T) \approx \mathcal{N}(\x_T; \mathbf{0}, \mathbf{I})$），随后通过可学习的反向马尔可夫链逐步去噪重构数据。该反向链的核心是参数化转移核：
 \begin{equation}
@@ -74,7 +81,7 @@
 \begin{equation*}
 \x_T \sim p(\x_T) \rightarrow \x_{T-1} \sim p_{\theta}(\x_{T-1}|\x_T) \rightarrow \cdots \rightarrow \x_0 \sim p_{\theta}(\x_0|\x_1).
 \end{equation*}
-在下一节，我们将推导DDPM的目标函数，并展示如何通过数学推导和特定的参数化设计得到方便计算优化的$\mu_{\theta}(\x_t,t)$和$\Sigma_{\theta}(x_t,t))$形式。
+我们在图\ref{fig:ddpm}中展示了DDPM的前向和反向过程。在下一节，我们将推导DDPM的目标函数，并展示如何通过数学推导和特定的参数化设计得到方便计算优化的$\mu_{\theta}(\x_t,t)$和$\Sigma_{\theta}(x_t,t))$形式。
 
 
 \subsubsection{DDPM的训练与推理}
@@ -198,6 +205,13 @@ $q(\x_{t-1}|\x_t,\x_0)$经过推导（详见附录\ref{app:ddpm_forward_posterio
 \end{equation*}
 其中$\nabla_{\x} \s_\theta (\x)$表示$\s_\theta (\x)$的Jacobian。尽管该方法避免了直接近似真实数据分布$p(\x)$，但\cite{song2019generative}指出该目标函数的迹函数难以计算，导致该方法缺乏可扩展性。
 
+\begin{figure}[tbp]
+\centering
+\includegraphics[width=0.8\textwidth]{img/SGM.jpg}
+\caption{训练神经网络$s_\theta(\cdot)$进行去噪分数匹配}
+\label{fig:sgm}
+\end{figure}
+
 现在最流行的分数函数学习方法是基于去噪分数函数匹配（Denoising Score Matching，DSM）\cite{vincent2011connection}。给定一个样本$\x_0$，该方法使用一个预定义的噪声分布$q_\sigma(\x^\prime|\x)$对其进行扰动得到带噪声数据，其分布为$q_\sigma(\x^\prime):=\int q_\sigma(\x^\prime|\x)p(\x)d\x$。DSM的核心思想是使用分数函数匹配来估计\emph{该带噪声数据分布$q_\sigma(\x^\prime)$的分数函数}，优化目标如下：
 \begin{equation}
 \E_{q_\sigma(\x^\prime|\x)p(\x)} \left[\frac{1}{2}\| \s_{\theta}(\x^\prime) - \nabla_{\x^\prime}\log q(\x^\prime|\x) \|^2 \right].
@@ -216,7 +230,7 @@ $q(\x_{t-1}|\x_t,\x_0)$经过推导（详见附录\ref{app:ddpm_forward_posterio
 \E_{q_\sigma(\x^\prime|\x)p(\x)} \left[\frac{1}{2}\| \s_{\theta}(\x^\prime) - \nabla_{\x^\prime}\log q(\x^\prime|\x)  \|^2 \right] = \E_{q(\x^\prime)} \left[ \frac{1}{2}\left\| \s_\theta(\x +\sigma\epsilon)+\frac{\epsilon}{\sigma} \right\|^2\right].
 \label{sgm:dsm_obj}
 \end{equation}
-可以看出，上面的目标函数的作用，就是训练分数函数$\s_\theta$，让其预测输入样本中的噪声（乘上系数$-1/\sigma$）。从物理视角理解，\emph{去除样本中的噪声本质上引导样本向数据分布的高概率区域移动}，这正是分数函数的定义。
+可以看出，上面的目标函数的作用，就是训练分数函数$\s_\theta$，让其预测输入样本中的噪声（乘上系数$-1/\sigma$）。从物理视角理解，\emph{去除样本中的噪声本质上引导样本向数据分布的高概率区域移动}，这正是分数函数的定义。我们在图\ref{fig:sgm}中展示了训练分数函数$\s_\theta$学习去除噪声的过程。
 
 \subsubsection{噪声条件分数网络}
 
