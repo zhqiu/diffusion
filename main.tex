@@ -33,8 +33,6 @@
 
 \section{扩散模型数学基础}
 
-【这里可以用一张表或图进行总结】
-
 本节系统阐述扩散模型的核心理论基础，涵盖三大主流范式：去噪扩散概率模型（Denoising Diffusion Probabilistic Model，DDPM）\cite{sohldickstein2015diffusion,ho2020denoising}、基于分数的生成模型（Score-based Generative Model，SGM）\cite{song2019generative,song2020improved}，以及基于随机微分方程的分数模型（Score SDE）\cite{song2020score,karras2022elucidating}。这三类方法本质上都遵循“先扰动、后生成”的思想框架：首先以逐步注入噪声的方式设计前向扩散过程，将结构化数据渐进变为噪声分布；再以反向去噪重建实现新样本生成。本节将依次梳理各类扩散模型的前向及反向机制，揭示模型之间的内在联系，最后介绍条件生成场景下的扩散模型数学表达形式。
 
 我们首先统一扩散模型中常用记号。设离散时间步为$t\in\{0,1,\cdots,T\}$，连续时间变量为$t\in[0,T]$。记原始数据为$\x_0\in\R^d$，满足$\x_0\sim q(\x_0)$。扩散模型通过向原始数据中不断加入高斯噪声构造一条数据轨迹$\{\x_0,\x_1,\cdots,\x_T\}$，最终使$\x_T$趋近于标准高斯分布。噪声注入强度由调度系数$\beta_t$（离散场景）或时变函数$\beta(t)dt$（连续场景）进行控制。
