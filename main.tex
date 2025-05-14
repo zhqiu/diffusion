@@ -19,7 +19,7 @@
 
 在本篇文献综述中，我们对端侧文生图模型的核心技术进展进行了系统梳理与评述。全文结构分为四个递进部分，涵盖理论基础、算法创新、模型实现与端侧优化等关键环节，为研究者提供完整的技术图谱。
 
-第一部分聚焦于扩散模型的数学理论基础。我们将详细介绍扩散模型的三大核心理论框架：去噪扩散概率模型、基于分数的生成模型以及随机微分方程方法。在此基础上，系统推导条件生成场景下的数学表达，深入阐释文本到图像生成的概率建模机制，为后续算法与实际应用奠定坚实的理论基础。
+第一部分聚焦于扩散模型的数学理论基础。我们将详细介绍扩散模型的三大核心理论框架：去噪扩散概率模型、基于分数的生成模型以及随机微分方程方法。在此基础上，我们系统推导条件生成场景下的数学表达，并深入阐释文本到图像生成的概率建模机制，为后续算法与实际应用奠定坚实的理论基础。
 
 第二部分系统梳理了扩散模型的关键算法创新。重点论述以下四方面的最新进展：（1）少步数扩散模型范式；（2）高效采样算法；（3）似然估计优化方法；（4）流形空间上的扩散建模。这些算法改进大大提升了模型的生成质量、效率和实际可用性，其中许多已成为当前主流方法的标准配置。
 
@@ -658,18 +658,20 @@ Diffusion Transformer（DiT）\cite{peebles2022scalable} 则把扩散模型架�
     \centering
     \begin{subfigure}[b]{0.49\textwidth}
         \centering
+        \raisebox{.5\height}{
         \includegraphics[width=\linewidth]{img/sdv15_latency.jpg}
-        \caption{SD-v1.5模型中各模块在iPhone 14 Pro上的延时（ms）}
+        }
+        \caption{SD-v1.5模型中各模块（Text Encoder，UNet，VAE Decoder）在iPhone 14 Pro上的延时（ms）和参数量（M）}
         \label{fig:latency_three}
     \end{subfigure}
     \hfill
     \begin{subfigure}[b]{0.49\textwidth}
         \centering
         \includegraphics[width=\linewidth]{img/unet_latency_params.jpg}
-        \caption{SD-v1.5中去噪UNet各层在iPhone 14 Pro上的延时（ms）和参数量（M）比较}
+        \caption{SD-v1.5中去噪UNet各层在iPhone 14 Pro上的延时（ms）和参数量（M）比较，其中CA表示交叉注意力模块，ResNet表示残差模块}
         \label{fig:latency_params_unet}
     \end{subfigure}
-    \caption{SD-v1.5的延时与参数量分析}
+    \caption{SD-v1.5的延时与参数量分析，图片来自\cite{li2023snapfusion}}
     \label{fig:sd_v15}
 \end{figure}
 
