@@ -3,7 +3,8 @@
 \usepackage{quicklatex} % 引入自定义样式
 \usepackage[toc,page]{appendix}
 \usepackage{multirow,multicol,makecell}
-
+\usepackage{mdframed}
+\usepackage[most]{tcolorbox}
 
 \title{端侧文生多模态大模型文献综述}
 \author{邱梓豪}
@@ -11,7 +12,7 @@
 
 \begin{document}
 
-
+\setcounter{tocdepth}{2}
 
 \maketitle
 \tableofcontents
@@ -474,38 +475,16 @@ CLIP（Contrastive Language-Image Pre-training）\cite{radford2021learning} 是�
 \end{equation}
 其中$s$是控制引导强度的超参数。无分类器引导具有两个显著优势。首先，它允许单个模型在直接利用自身习得的知识进行生成，而无需依赖另一个分类模型。其次，当需要基于难以通过分类器预测的信息（例如文本）进行条件生成时，这种引导方式能够显著简化条件控制流程。因此，无分类器引导（CFG）现在已经成为文生图模型中的常用引导范式。
 
+\subsection{小结}
+
+本节综述了去噪扩散概率模型（DDPM）和基于分数的生成模型（SGM）及其条件生成方法。DDPM通过前向加噪和反向去噪过程实现生成，而SGM利用分数匹配学习数据分布的梯度信息并通过朗之万动力学采样生成样本。这两种模型均可由随机微分方程（SDE）统一描述，揭示了其内在联系。最后，本节讨论了三种条件生成方法：分类器引导、CLIP引导和无分类器引导，分析了它们的核心机制和优缺点，其中无分类器引导因其高效性和灵活性已成为文生图领域的主流方法。
 
 
 \newpage
 
 \section{扩散模型后续改进}
 
-\begin{table*}[t]
-\caption{扩散模型后续改进}
-\vspace{-4mm}
-\begin{center}
-\begin{tabular}{p{3.4cm}|p{3.7cm}|p{3.7cm}}
-\toprule
-\multirow{3}{*}{第一行} & 1行 & 1行 \\
-                       & 2行 & 2行 \\
-                       & 3行 & 3行 \\
-\midrule
-\multirow{3}{*}{第二行} & 4行 & 4行 \\
-                       & 5行 & 5行 \\
-                       & 6行 & 6行 \\
-\midrule
-\multirow{3}{*}{第三行} & 7行 & 7行 \\
-                       & 8行 & 8行 \\
-                       & 9行 & 9行 \\
-\midrule
-\multirow{2}{*}{第四行} & 10行 & 10行 \\
-                        & 11行 & 11行 \\
-\bottomrule
-\end{tabular}
-\end{center}
-\end{table*}
-
-扩散模型凭借坚实的理论基础与卓越的生成能力，近年来备受关注。然而，早期扩散模型在实际应用中面临诸多挑战，例如采样效率低下限制了生成速度，似然估计不准影响了生成质量与可控性，以及欧氏空间假设难以适应实际数据常呈现的复杂流形结构。为克服这些瓶颈，研究者围绕四个核心方向开展了系统性改进：（1）通过轨迹优化实现少步数高效生成；（2）设计更为快速的采样算法，显著提升采样效率；（3）发展精确的似然评估、概率密度建模方法；（4）将扩散过程引入流形空间，有效应对结构化或复杂数据分布。这些创新性突破不仅大幅提升了扩散模型的生成质量与效率，还催生了以Stable Diffusion\cite{rombach2022high}为代表的多模态生成系统，极大推动了扩散模型从理论探索走向实际应用的进程。
+扩散模型凭借坚实的理论基础与卓越的生成能力，近年来备受关注。然而，早期扩散模型在实际应用中面临诸多挑战，例如采样效率低下限制了生成速度，似然估计不准影响了生成质量与可控性，以及欧氏空间假设难以适应实际数据常呈现的复杂流形结构。为克服这些瓶颈，研究者围绕四个核心方向开展了系统性改进：（1）通过轨迹优化实现少步数高效生成；（2）设计更为快速的采样算法，显著提升采样效率；（3）发展精确的似然评估、概率密度建模方法；（4）将扩散过程引入流形空间，有效应对结构化或复杂数据分布。下面我们将系统地介绍这四个核心方向的典型方法。
 
 \subsection{少步数生成的扩散模型范式}
 \label{sec:rf_cm_lcm}
@@ -581,7 +560,7 @@ DDIM与DDPM的训练目标一致，都是训练模型$\epsilon_\theta(\x_t,t)$�
 \end{equation*}
 值得注意的是，此时反向过程完全由$\x_t$和$\epsilon_\theta$决定，无随机噪声注入。从本质上来看，DDIM的反向过程对应于概率流ODE的一种特殊离散化方案，无噪声使得ODE的求解误差增长较慢，所以可以使用较大的步长，因而降低了采样步数。此外，由于DDIM的非马尔可夫设计，\cite{song2020denoising}证明了在部分步骤上反向过程的生成分布与完整过程的分布近似一致，故DDIM在采样时可以跳过一些冗余中间步骤，这进一步降低采样步数。
 
-后续工作广义去噪扩散隐式模型（gDDIM）\cite{zhang2022gddim}提出通过分数函数网络的参数化方式，将DDIM推广到更一般的扩散模型中，例如模糊扩散模型（Blurring Diffusion Model，BDM）\cite{Hoogeboom2023blurring}和临界阻尼朗之万扩散（CLD）\cite{dockhorn2021score}等。PNDM\cite{liu2021pseudo}将扩散模型的逆向过程视为在$\mathbb{R}^N$中的特定流形上的微分方程求解问题，并提出一种伪数值方法使其在数据分布的高密度流形上生成样本，避免传统数值方法因偏离流形而导致的性能退化，其理论分析揭示DDIM实为PNDM在欧式空间的特例。
+后续工作广义去噪扩散隐式模型（gDDIM）\cite{zhang2022gddim}提出通过分数函数网络的参数化方式，将DDIM推广到更一般的扩散模型中，例如模糊扩散模型（Blurring Diffusion Model，BDM）\cite{Hoogeboom2023blurring}和临界阻尼朗之万扩散（CLD）\cite{dockhorn2021score}等。PNDM\cite{liu2021pseudo}将扩散模型的反向过程视为在$\mathbb{R}^N$中的特定流形上的微分方程求解问题，并提出一种伪数值方法使其在数据分布的高密度流形上生成样本，避免传统数值方法因偏离流形而导致的性能退化，其理论分析揭示DDIM实为PNDM在欧式空间的特例。
 
 
 \subsubsection{基于高阶ODE求解器的采样方法}
@@ -596,7 +575,7 @@ DDIM与DDPM的训练目标一致，都是训练模型$\epsilon_\theta(\x_t,t)$�
 
 \subsection{似然估计优化}
 
-扩散模型的训练目标本质上是数据对数似然的变分下界（Evidence Lower Bound, ELBO），然而该下界往往存在松弛性问题，导致模型难以达到最优似然性能。近期一些工作通过系统优化扩散过程中的噪声调度策略与反向过程的方差参数化方式，提升了变分下界的紧致性，进而改善模型的数据建模能力。本节将从噪声调度优化、广义参数化框架和逆向方差解析解三个方向，系统阐述该领域的关键进展。
+扩散模型的训练目标本质上是数据对数似然的变分下界（Evidence Lower Bound, ELBO），然而该下界往往存在松弛性问题，导致模型难以达到最优似然性能。近期一些工作通过系统优化扩散过程中的噪声调度策略与反向过程的方差参数化方式，提升了变分下界的紧致性，进而改善模型的数据建模能力。本节将从噪声调度优化、广义参数化框架和反向方差优化三个方向，系统阐述该领域的关键进展。
 
 传统扩散模型的噪声调度通常采用启发式设计，这种固定模式可能无法适应复杂数据分布的动态去噪需求。iDDPM\cite{nichol2021improved}提出了一种基于余弦函数的噪声调度策略，该设计能在时间域两端（$t\rightarrow 0$和$t\rightarrow T$）产生更平缓的噪声变化率，实验显示它显著提升了模型的对数似然性能。具体地，该工作将(\ref{ddpm:bar_alpha})中的$\bar{\alpha}_t$定义为：
 \begin{equation*}
@@ -608,27 +587,62 @@ DDIM与DDPM的训练目标一致，都是训练模型$\epsilon_\theta(\x_t,t)$�
 \end{equation*}
 其中$v$为扩散模型根据$\x_t$产生一个与$\beta_t$相同维度的权重向量，$\sigma_q^2(t)$由(\ref{eq:reverse-posterior-main})定义。这种设计既保留了DDPM原始方差$\beta_t$的稳定性，又通过$\sigma_q^2(t)$引入数据依赖性，使模型能自适应调整不同时间步的去噪强度。
 
+除了iDDPM提出的方差学习方法外，一些模型还可以直接对方差进行显式预测。其中具有代表性的模型是DiT（Diffusion Transformer）\cite{peebles2022scalable}。DiT是一种基于Transformer架构的扩散模型，融合了扩散过程与Transformer的全局建模能力，能够高效地处理高分辨率图像的生成任务，我们在图\ref{fig:dit}中展示了DiT的结构。与传统仅预测噪声或均值的模型不同，DiT不仅能够为带噪输入预测噪声，还可以同时对扩散过程中的方差进行建模和预测。通过联合预测均值和方差，DiT进一步提升了生成图像的质量与多样性，同时增强了采样的稳定性和细节表现。
+
+在反向过程方差优化的研究方向上，Analytic-DPM\cite{bao2021analytic}从变分原理出发，通过严格的数学推导提出了最优反向方差的解析表达式：
+\begin{equation*}
+    \Sigma_\theta(\x_t,t)=\sigma_q^2(t) + \left(\sqrt{\frac{\bar{\beta}_t}{\alpha_t}} -\sqrt{\bar{\beta}_{t-1}-\sigma_q^2(t)} \right)^2\cdot \left(1-\bar{\beta}_t \E_{q(\x_t)}\frac{\|\nabla_{\x_t}\log q(\x_t) \|^2}{d} \right)
+\end{equation*}
+其中$\sigma_q^2(t)$由(\ref{eq:reverse-posterior-main})定义，$\alpha_t=1-\beta_t$（$\beta_t$由(\ref{ddpm:forward_process})定义），
+$\bar{\beta}_t=1-\bar{\alpha}_t$（$\bar{\alpha}_t$由(\ref{ddpm:bar_alpha})定义），$q(\x_t)$是前向过程生成的$\x_t$的边缘分布，$d$是数据的维度。该理论成果的核心价值在于给定预训练的分数模型后即可通过蒙特卡洛估计确定最优反向方差，并且使用该最优方差可得到更紧致的变分下界估计。
+
 Kingma等人提出的变分扩散模型（Variational Diffusion Model，VDM）\cite{kingma2021variational}通过引入广义参数化形式扩展了传统扩散模型的理论框架。首先，VDM将前向过程的边缘分布表述为$q(\x_t|\x_0)=\N(\x_t;\alpha_t\x_0,\sigma_t^2\mathbf{I})$，其中参数$\alpha_t$和$\sigma_t^2$分别独立控制信号衰减和噪声注入。这种解耦设计揭示了DDPM与NCSN的内在联系：当约束$\alpha_t=\sqrt{1-\sigma_t^2}$时，VDM退化为标准DDPM，其信噪比$\alpha_t^2/\sigma_t^2$呈现单调递减特性；当固定$\alpha_t=1$时，VDM等价于NCSN的连续时间形式。VDM进一步提出通过如下方式参数化$\sigma_t^2$，以实现可微分的噪声调度：
 \begin{equation*}
     \sigma_t^2=\text{sigmoid}(\gamma_\eta(t)),
 \end{equation*}
 其中$\gamma_\eta(t)$是参数为$\eta$的单调神经网络，它保证了$\x_t$的信噪比随时间单调递减的特性，还为学习复杂噪声调度提供了可微分的参数空间。
 
-在反向过程方差优化方面，Analytic-DPM\cite{bao2021analytic}提出从变分原理出发推导出最优反向方差的解析表达式：
-\begin{equation*}
-    \Sigma_\theta(\x_t,t)=\sigma_q^2(t) + \left(\sqrt{\frac{\bar{\beta}_t}{\alpha_t}} -\sqrt{\bar{\beta}_{t-1}-\sigma_q^2(t)} \right)^2\cdot \left(1-\bar{\beta}_t \E_{q(\x_t)}\frac{\|\nabla_{\x_t}\log q(\x_t) \|^2}{d} \right)
-\end{equation*}
-其中$\sigma_q^2(t)$由(\ref{eq:reverse-posterior-main})定义，$\alpha_t=1-\beta_t$（$\beta_t$由(\ref{ddpm:forward_process})定义），
-$\bar{\beta}_t=1-\bar{\alpha}_t$（$\bar{\alpha}_t$由(\ref{ddpm:bar_alpha})定义），$q(\x_t)$是前向过程生成的$\x_t$的边缘分布，$d$是数据的维度。该理论成果的核心价值在于给定预训练的分数模型后即可通过蒙特卡洛估计确定最优逆向方差，并且使用该最优方差可得到更紧致的变分下界估计。
-
 
 \subsection{流形上的高效扩散模型学习}
 
 传统扩散模型通常在原始数据空间（如像素空间）直接建模，这种范式面临两个根本性挑战：一方面，高维空间中的扩散过程需要大量网络评估步骤以实现渐进式去噪，导致采样效率低下；另一方面，数据空间中存在的冗余高频成分会干扰模型对本质特征的提取。针对这些问题，研究者提出通过流形学习（manifold learning）构建低维潜在空间，在此压缩表示上实施扩散过程，形成“编码-扩散-解码”的级联架构，显著提升计算效率。
 
-潜在分数生成模型（Latent Score-Based Generative Model，LSGM）\cite{vahdat2021score}首次提出将SGM和变分自编码器（Variational Autoencoder，VAE）结合：通过VAE的编码器将高维数据映射至低维潜在空间，继而在此压缩空间进行SGM的训练和采样。该框架在保持原始SGM生成质量和概率分布覆盖能力的同时，显著提升了计算效率，有效平衡了模型性能与资源消耗。
+隐空间分数生成模型（Latent Score-Based Generative Model，LSGM）\cite{vahdat2021score}首次提出将SGM和变分自编码器（Variational Autoencoder，VAE）结合：通过VAE的编码器将高维数据映射至低维潜在空间，继而在此压缩空间进行SGM的训练和采样。该框架在保持原始SGM生成质量和概率分布覆盖能力的同时，显著提升了计算效率，有效平衡了模型性能与资源消耗。
 
-区别于LSGM的联合训练范式，潜在扩散模型（Latent Diffusion Model，LDM）\cite{rombach2022high}采用分阶段优化策略。其技术核心在于：首先独立训练具有感知等效特性的分层VAE，构建高度语义压缩的潜在表示空间；随后在此稳定收敛的潜在空间中训练扩散概率模型。这种解耦式训练架构不仅降低了模型优化难度，更重要的是通过建立“感知等效-语义压缩”的潜在空间，使得扩散过程能聚焦于本质特征学习，从而在图像生成任务中实现计算复杂度降低与视觉保真度提升的双重突破。
+区别于LSGM的联合训练范式，隐空间扩散模型（Latent Diffusion Model，LDM）\cite{rombach2022high}采用分阶段优化策略。其技术核心在于：首先独立训练具有感知等效特性的分层VAE，构建高度语义压缩的潜在表示空间；随后在此稳定收敛的潜在空间中训练扩散概率模型。这种解耦式训练架构不仅降低了模型优化难度，更重要的是通过建立“感知等效-语义压缩”的潜在空间，使得扩散过程能聚焦于本质特征学习，从而在图像生成任务中实现计算复杂度降低与视觉保真度提升的双重突破。
+
+
+\begin{table*}[t]
+\caption{扩散模型后续改进总结}
+\vspace{-4mm}
+\begin{center}
+\begin{tabular}{p{2.6cm}|p{5.7cm}|p{6.6cm}}
+\toprule
+改进方向 & 典型方法 & 核心思想 \\
+\midrule
+\multirow{3}{*}{少步数扩散模型} & 修正流~\cite{liu2022flow} & 线性化数据与噪声间的传输路径\\
+                       & 一致性模型~\cite{pmlr-v202-song23a} & 将扩散轨迹上任意点直接映射到数据点 \\
+                       & 隐空间一致性模型~\cite{luo2023latent} & 将一致性模型迁移到低维隐空间中 \\
+\midrule
+\multirow{3}{*}{高效采样算法} & 基于反向SDE~\cite{song2019generative,JolicoeurMartineau2021AdversarialSM,song2020score,jolicoeur2021gotta,dockhorn2021score} & 离散反向SDE实现噪声到数据的生成 \\
+                       & 基于概率流ODE~\cite{song2020denoising,zhang2022gddim,liu2021pseudo} & 求解确定性ODE构建高效生成路径 \\
+                       & 基于高阶ODE~\cite{karras2022elucidating,zhang2022fast,lu2022dpm,dockhorn2022genie,shaul2023bespoke} & 建模高阶信息精确逼近生成轨迹 \\
+\midrule
+\multirow{3}{*}{似然估计优化} & 噪声调度优化~\cite{nichol2021improved} & 设计自适应噪声调度以实现更平滑去噪 \\
+                       & 反向方差优化~\cite{bao2021analytic,nichol2021improved,peebles2022scalable} & 用解析式或模型预测精准建模反向方差 \\
+                       & 广义参数化框架~\cite{kingma2021variational} & 独立地参数化信号衰减和噪声注入 \\
+\midrule
+\multirow{2}{*}{流形上扩散模型} & 隐空间分数生成模型~\cite{vahdat2021score} & 联合训练VAE编码器与扩散模型 \\
+                        & 隐空间扩散模型~\cite{rombach2022high} & 先训练VAE编码器再构建扩散模型 \\
+\bottomrule
+\end{tabular}
+\end{center}
+\label{tab:advanced_diffusion}
+\end{table*}
+
+\subsection{小结}
+
+本节中，我们综述了近年来高效图像生成领域中扩散模型的研究进展。重点讨论了减少采样步数的扩散模型范式，如修正流、一致性模型和隐空间一致性模型，以及基于SDE/ODE求解器和高阶梯度信息的快速采样器。此外，我们还分析了似然估计优化技术，包括噪声调度、广义参数化和方差优化，以及通过隐空间在流形上进行高效的扩散模型学习。这四方面的创新性突破不仅大幅提升了扩散模型的生成质量与效率，还催生了以Stable Diffusion\cite{rombach2022high}为代表的多模态生成系统，极大推动了扩散模型从理论探索走向实际应用的进程。我们在表\ref{tab:advanced_diffusion}中总结这这四个核心方向的典型方法与其核心思想。
 
 \newpage
 
@@ -666,7 +680,7 @@ $\bar{\beta}_t=1-\bar{\alpha}_t$（$\bar{\alpha}_t$由(\ref{ddpm:bar_alpha})定�
 
 近年来，随着视觉Transformer（ViT）\cite{dosovitskiy2020image} 的兴起，研究者们开始探索更为高效简洁的架构设计。例如，UViT\cite{uvit}将Transformer模块引入条件化UNet架构的中间阶段，取代传统卷积层，显著增强了模型的全局特征建模能力。尽管自注意力机制理论上计算复杂度较高，Transformer与MLP模块却能充分利用现代GPU/TPU的并行计算资源，使得实际应用中的效率依然可观。由于UViT的结构与条件化UNet高度相似，本文后续将其视为条件化UNet的一种变体，并将两者合并进行讨论。
 
-Diffusion Transformer（DiT）\cite{peebles2022scalable} 则把扩散模型架构推向了新的方向。DiT完全摒弃了传统卷积结构，采用分块化输入处理方式——将图像切分为不重叠的patch序列，既保留了Transformer对序列数据的强大建模能力，又减轻了高分辨率输入带来的计算压力。其核心DiT Block以标准Transformer Block为基础（多头注意力加前馈网络），创新性地融入自适应层归一化（adaLN-Zero），通过将时间步与文本提示的特征作为条件输入，实现对扩散过程时序动态的精细调控。最终，解码器将处理后的token特征转回噪声和协方差预测，顺利完成生成流程。这些设计创新不仅大幅提升了图像生成质量和效率，也为扩散模型架构的未来发展开辟了新方向。我们在图\ref{fig:dit}中展示了DiT的结构。
+Diffusion Transformer（DiT）\cite{peebles2022scalable} 则把扩散模型架构推向了新的方向。DiT完全摒弃了传统卷积结构，采用分块化输入处理方式——将图像切分为不重叠的patch序列，既保留了Transformer对序列数据的强大建模能力，又减轻了高分辨率输入带来的计算压力。其核心DiT Block以标准Transformer Block为基础（多头注意力加前馈网络），创新性地融入自适应层归一化（adaLN-Zero），通过将时间步与文本提示的特征作为条件输入，实现对扩散过程时序动态的精细调控。最终，解码器将处理后的token特征转回噪声和反向方差预测，顺利完成生成流程。这些设计创新不仅大幅提升了图像生成质量和效率，也为扩散模型架构的未来发展开辟了新方向。我们在图\ref{fig:dit}中展示了DiT的结构。
 
 作为LDM架构的成功实践，稳定扩散模型（Stable Diffusion Models，SDMs）\cite{rombach2022high}是T2I合成领域最著名的开源模型之一，其卓越的生成能力已开始作为核心架构被应用于多项文本引导的视觉任务\cite{blattmann2023videoldm,brooks2023instructpix2pix,wang2023score,zhang2023adding}。SDMs本质上是专精于T2I的潜在扩散模型（LDMs）\cite{rombach2022high}，通过在语义压缩空间执行扩散过程\cite{ho2022classifier,liu2021pseudo,song2020denoising}来提升计算效率。该模型可采用条件UNet或DiT架构对随机潜在编码进行迭代采样去噪，并配合文本编码器\cite{radford2021learning}与图像解码器\cite{esser2021taming,van2017neural}生成文本对齐的图像。我们在图\ref{fig:sdm}中展示了SDM的结构以及推理结构。
 
@@ -721,13 +735,12 @@ Diffusion Transformer（DiT）\cite{peebles2022scalable} 则把扩散模型架�
 当前扩散模型的训练所依赖的互联网图文对数据尽管经过自动化清洗，但真实数据的固有噪声（如语义偏差、标注错误和上下文割裂等）问题始终构成挑战，这阻碍了模型性能的提升。在此背景下，使用合成数据训练模型慢慢得到关注和研究。EdgeFusion\cite{castells2024edgefusion}提出使用GPT-4进行文本提示词生成，并使用SDXL\cite{podell2023sdxl}进行图像生成，该方法显著提升了训练数据的可控性和多样性。通过调整诸如性别、种族和年龄等关键属性，能够有效规避数据偏见，实现更全面和包容性的数据覆盖。实验表明，合成样本在图像质量和文本-图像语义对齐上表现优异，大幅提升了模型的整体性能。
 
 
-
-
 \subsection{模型测试基准}
 
 随着文生图技术的快速发展，扩散模型凭借其高质量的生成效果和优异的训练稳定性成为当前的研究热点。在这一背景下，如何建立客观、全面的性能评估体系成为衡量技术有效性的关键问题。本文聚焦扩散模型的评估方法，系统阐述三类核心指标：Inception Score（IS）\cite{salimans2016improved}、Fr\'echet Inception Distance（FID）\cite{dowson1982frechet}和CLIP分数，并探讨它们在不同应用场景中的适用性及内在局限性。
 
 Inception Score（IS）\cite{salimans2016improved}是评估生成模型性能的经典指标，其核心思想是利用预训练的Inception-v3模型\cite{szegedy2016rethinking}计算生成图像的质量和多样性。具体计算步骤如下：
+\begin{tcolorbox}
 \begin{enumerate}
     \item 对每张生成的图像$\x$，使用Inception-v3模型预测其类别分布$p(y|\x)$；
     \item 对所有生成图像，计算类别边缘分布$p(y)=\E_{\x}[p(y|\x)]$；
@@ -735,12 +748,14 @@ Inception Score（IS）\cite{salimans2016improved}是评估生成模型性能的
         \text{IS} =\exp(\E_{\x}[\text{KL}(p(y|\x))\|p(y)]).
     \end{equation*}
 \end{enumerate}
+\end{tcolorbox}
 
 从直观上来看，若$p(y|\x)$具有尖锐分布（即某一类别概率显著高）, 说明图片清晰、容易识别；若$p(y)$较为均匀, 说明生成图片覆盖类别广。因此，IS分数实际度量了每张图片的类别分布与整体现有类别分布之间的差异。当生成图片既清晰又类别分布广泛时，KL散度较大，IS分数就越高。
 
 IS的优点主要体现在，计算便捷，仅依赖生成图片和一个预训练的分类器，无需额外人工标注，并能够兼顾图片的清晰度和多样性。同时，分数具有可比性，有利于对比不同模型在同一标准下的表现。然而，IS也存在一定局限——其评价严重依赖于分类器的性能和预设类别分布，对于模式坍塌、类别不平衡等现象检测不敏感；此外，当生成的数据与分类器预训练集（如ImageNet）类别相差较大时，IS分数就不再可靠，难以真实反映生成分布的多样性和质量。
 
 Fr\'echet Inception Distance（FID）\cite{dowson1982frechet}通过在特征空间比较生成数据和真实数据的分布，有效缓解了IS对模式塌陷和数据集不适配等现象不敏感的缺陷，因此被认为是更加健壮、综合的生成模型评价指标。FID的具体计算步骤如下：
+\begin{tcolorbox}
 \begin{enumerate}
     \item 将生成图像和真实图像输入Inception-v3，提取最后一层池化层特征（2048维）；
     \item 假设特征服从多元高斯分布，分别计算生成图像和真实图像的均值向量$m$和$m_w$以及协方差矩阵$C$和$C_w$；
@@ -750,12 +765,14 @@ Fr\'echet Inception Distance（FID）\cite{dowson1982frechet}通过在特征空�
     \end{equation*}
     其中$\text{Tr}(\cdot)$表示迹函数。
 \end{enumerate}
+\end{tcolorbox}
 
 FID衡量的是在神经网络特征空间下，生成图片分布与真实图片分布的“距离”：FID越低，表示生成图片在分布上与真实图片越接近，其质量和多样性也更好；反之，FID越高则说明差距越大。FID不仅能够直接反映生成图片与真实图片的整体差异，对检测模式坍塌和评估样本质量与多样性都非常有效，已成为当前主流的生成模型评价标准。与IS相比，FID不依赖于类别标签，适用更广泛的数据类型和任务。然而，FID在计算时假设特征分布为高斯分布，存在一定近似误差，并且对样本数量和特征提取网络的选择比较敏感，需要较大样本量和统一的网络设置以获得可靠的评价结果。
 
 Chong等人\cite{chong2020effectively}指出IS和FID存在系统性偏差问题，其有限样本评估结果不仅偏离真实值，还会因模型不同而产生不可靠的比较结果。为此，他们提出通过外推法计算无限样本条件下的无偏估计$\text{IS}_\infty$和$\text{FID}_\infty$，并采用拟蒙特卡洛积分法提升有限样本评估精度，从而实现了可靠的无偏比较。
 
 CLIP分数是近年来常用于评估文生图像任务的指标，本质上是基于CLIP（Contrastive Language-Image Pre-Training）\cite{radford2021learning}模型来度量生成图片与语义描述之间的相关性。其具体计算过程如下：
+\begin{tcolorbox}
 \begin{enumerate}
     \item 假设扩散模型根据一组文本描述$\{\t_i\}$生成对应的图像$\{\x_i\}$；
     \item 使用预训练CLIP模型的文本编码器和图像编码器分布将文本描述$\t_i$编码成$f_T(\t_i)$，将图像$\x_i$编码成$f_I(\x_i)$；
@@ -764,17 +781,22 @@ CLIP分数是近年来常用于评估文生图像任务的指标，本质上是�
     \text{CLIP score}=\E_{(\x_i,\t_i)}\left[\frac{f_I(\x_i)\cdot f_T(\t_i)}{\|f_I(\x_i)\|\cdot\|f_T(\t_i)\|}\right].
     \end{equation*}  
 \end{enumerate}
+\end{tcolorbox}
 
 CLIP分数直观上衡量的是生成图片与目标文本描述之间的语义一致性，分数越高，代表生成图片与文本内容越贴合，被视为模型“理解”文本并正确生成对应图像的能力。它具有无需人工标注、评价高效、能直接捕捉文本与图像之间语义匹配度的优点，并广泛适用于多模态生成任务。但其缺点在于高度依赖CLIP模型的泛化能力，若文本或图像内容超出CLIP的训练分布，分数可能失真；此外，它对图片细节质量和多样性不敏感，可能无法全面反映生成模型的整体表现。因此，CLIP分数通常需要与FID等其他指标结合使用以获得更全面的评估。
 
 与CLIP分数类似，$R$-precision指标\cite{xu2018attngan}同样可用于衡量生成图像与输入文本之间的语义一致性。作为一种基于检索的方法，它通过计算图像与相应文本描述在特征空间中的匹配精度，来评价生成模型的性能。具体而言，该方法通常借助预训练的多模态模型（如CLIP）提取图像和文本的特征向量。随后，利用余弦相似度度量生成图像与所有候选文本描述之间的相似性，并根据相似度进行排序。$R$-precision则表示与每幅生成图像最相关的前$R$个文本中，包含真实匹配文本的比例，有效反映了生成图像与输入文本在语义层面的匹配程度。
+
+\subsection{小结}
+
+本节介绍了文本生成图像扩散模型的架构演进，重点分析了条件化UNet、UViT、DiT以及稳定扩散模型（SDM）等核心架构的设计特点与性能瓶颈。此外，我们还讨论了训练数据集的构建方法，以及评估扩散模型常用指标（如IS、FID和CLIP分数）的计算方法及其各自的优缺点。
 
 
 \newpage
 
 \section{端侧部署的关键技术}
 
-在本节中，我们将深入分析基于广泛应用的扩散模型(SDM)的主流加速方法。首先，我们将介绍\textbf{网络参数量化技术}，这类方法在不显著修改网络架构的前提下，有效降低了计算内存和存储需求。随后，我们探讨多种\textbf{精简网络架构设计}的工作，它们通过不同策略简化网络结构以提高效率。由于修改网络架构后通常需要对模型进行微调，我们进而分析主流的\textbf{知识蒸馏与步数蒸馏}技术，其中知识蒸馏使小模型能够快速掌握大模型的能力，而步数蒸馏则大幅加速推理过程。最后，我们考察各种\textbf{底层计算优化方法}，这些方法从硬件系统层面对扩散模型中的计算过程进行优化，进一步提升性能。我们在图\ref{fig:on-device-acc-tech}中直观展示了这四大类方法及它们的代表性工作。
+在本节中，我们将深入分析基于广泛应用的扩散模型(SDM)的主流加速方法。首先，我们将介绍\textbf{网络参数量化技术}，这类方法在不显著修改网络架构的前提下，有效降低了计算内存和存储需求。随后，我们探讨多种\textbf{精简网络架构设计}的工作，它们通过不同策略简化网络结构以提高效率。由于修改网络架构后通常需要对模型进行微调，我们进而分析主流的\textbf{知识蒸馏与步数蒸馏}技术，其中知识蒸馏使小模型能够快速掌握大模型的能力，而步数蒸馏则大幅加速推理过程。最后，我们考察各种\textbf{底层计算优化方法}，这些方法从硬件系统层面对扩散模型中的计算过程进行优化，进一步提升性能。
 
 
 \subsection{网络参数量化技术}
@@ -786,13 +808,6 @@ CLIP分数直观上衡量的是生成图片与目标文本描述之间的语义�
 尽管PTQ方法操作高效，但在极低位宽（如4位及以下）量化时往往引入显著误差，甚至导致模型完全丧失去噪能力\cite{he2023ptqd}。\textbf{量化感知训练（QAT）}\cite{krishnamoorthi2018quantizing,esser2019learned}可通过全模型微调恢复低位性能，但其计算开销通常远超PTQ方法。为平衡效率与性能，研究者提出了一系列折中方案：EfficientDM\cite{he2024efficientdm}结合LoRA框架\cite{hu2022lora}提出量化感知低秩适配器（QALoRA），实现了权重与激活的联合低比特量化，在保持PTQ级效率的同时达到QAT级的生成质量；Q-DM\cite{li2023qdm}针对激活分布振荡和量化误差累积问题，提出了时间步感知量化（TaQ）和噪声估计模仿（NeM）技术；BitsFusion\cite{sui2024bitsfusion}通过分析各层量化敏感性并设计分层位宽分配策略，结合时间嵌入预计算缓存、平衡整数初始化及交替优化缩放因子等技术，将Stable Diffusion v1.5的UNet有效压缩到平均1.99比特。
 
 这些进展表明，现有扩散模型量化方法主要围绕时间步动态感知、混合精度分配及自适应校准等核心技术展开，显著缓解了分布漂移和精度损失的问题。这些方法普遍强调量化策略与扩散过程特性的深度结合，实现了在低位宽下的高效部署与性能平衡。
-
-\begin{figure}[tbp]
-\centering
-\includegraphics[width=0.8\textwidth]{img/on-device-acc-tech.jpg}
-\caption{端侧部署的关键技术总结}
-\label{fig:on-device-acc-tech}
-\end{figure}
 
 
 \subsection{精简网络架构设计}
@@ -854,6 +869,18 @@ EdgeFusion\cite{castells2024edgefusion}提出的模型级分块（Model-Level Ti
 SANA\cite{xie2024sana}的边缘部署方案通过以下技术实现高效推理：首先采用混合精度量化策略，对网络激活值实施逐令牌对称INT8量化，权重采用逐通道对称INT8量化，同时保留交叉注意力块中的归一化层、线性注意力及KV投影层的FP16精度以确保语义保真度。此外，提出了一种基于Triton\cite{tillet2019triton}的底层优化方案。Triton是一款用于高性能深度学习计算的自定义GPU内核编程框架，能够帮助开发者以更高的抽象层级编写高效的张量运算代码。SANA利用Triton实现了对线性注意力前向与反向传播核函数的融合，并将激活函数、精度转换等操作整合到矩阵乘法流程之中，从而大幅减少了内存数据传输和访问带来的开销。
 
 综上所述，底层计算优化方法通过充分挖掘现代硬件的算力潜力，在算子融合、内存利用和并行调度等方面不断突破，为边缘和移动设备高效运行大规模模型提供了坚实技术基础。这些方法不仅提升了单个模型推理效率，也为未来智能终端的模型部署和实时推理能力开辟了新的可能性。
+
+\subsection{小结}
+
+\begin{figure}[tbp]
+\centering
+\includegraphics[width=0.8\textwidth]{img/on-device-acc-tech.jpg}
+\caption{端侧部署的关键技术总结}
+\label{fig:on-device-acc-tech}
+\end{figure}
+
+本节介绍了文生图扩散模型的高效部署的关键技术，主要涵盖网络参数量化、架构精简、知识蒸馏及底层计算优化等方向。网络参数量化与架构精简通过压缩模型规模、减少计算开销，为边缘设备提供了轻量化、高效能的推理能力。知识蒸馏和步数蒸馏方法则依托多层次知识迁移、输出对齐与对抗学习，显著降低采样步数并保证生成质量。与此同时，底层计算优化在算子融合、内存布局与算力调度等层面进一步激发现代硬件潜力，实现了大规模模型在移动和边缘终端的高效运行，为文生图技术的实际落地和普及奠定了坚实基础。我们在图\ref{fig:on-device-acc-tech}中直观展示了这四大类方法及它们的代表性工作。
+
 
 \newpage
 
