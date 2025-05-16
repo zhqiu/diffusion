@@ -20,6 +20,8 @@
 
 \section{前言}
 
+\subsection{本文结构}
+
 在本篇文献综述中，我们对端侧文生图模型的核心技术进展进行了系统梳理与评述。全文结构分为四个递进部分，涵盖理论基础、算法创新、模型实现与端侧优化等关键环节，为研究者提供完整的技术图谱。
 
 第一部分聚焦于扩散模型的数学理论基础。我们将详细介绍扩散模型的三大核心理论框架：去噪扩散概率模型、基于分数的生成模型以及随机微分方程方法。在此基础上，我们系统推导条件生成场景下的数学表达，并深入阐释文本到图像生成的概率建模机制，为后续算法与实际应用奠定坚实的理论基础。
@@ -32,13 +34,25 @@
 
 综上，本综述旨在全面梳理端侧文生图模型从理论到实践的技术链条，为相关领域研究与工程实现提供系统参考，助力高效生成模型在移动端等实际场景中的深度应用。
 
-最后，我们总结本综述与其他同类型综述的不同。
+\subsection{与其他同类型综述的不同}
 
-Yang等人\cite{yang2023diffusion}
+Yang等人\cite{yang2023diffusion}介绍了扩散模型的核心理论框架（如去噪扩散概率模型、基于分数的生成模型和随机微分方程方法）、高效采样方法以及针对离散数据、流形数据等特殊结构的扩展。随后总结了扩散模型在计算机视觉、自然语言处理、多模态（如文生图）及科学计算（如分子生成）等领域的应用，并分析了其与VAE、GAN等生成模型的关联。
 
-Bie等人\cite{bie2024renaissance}
+Bie等人\cite{bie2024renaissance}梳理了文生图扩散模型的核心原理，包括前向加噪和反向去噪的马尔可夫链过程，以及基于潜在空间的高效生成方法。并重点分析了扩散模型的关键优化技术，如文本-图像对齐增强、专家混合（MoE）架构，并对比了其与GAN、Transformer等模型的优劣。
 
-Croitoru等人\cite{croitoru2023diffusion}
+Croitoru等人\cite{croitoru2023diffusion}主要介绍了扩散模型的理论框架（如前向/反向扩散过程，去噪扩散概率模型、基于分数的生成模型和随机微分方程三大方法）及其在图像生成、编辑等任务中的应用，并对比了扩散模型与GAN等生成模型的优劣。
+
+Xu等人\cite{xu2024device}探讨了设备端大型语言模型的部署与优化，重点分析了模型压缩技术（如量化、剪枝、知识蒸馏）、高效架构设计（如MoE、参数共享）以及硬件协同优化（如GPU/NPU适配）。随后总结了设备端LLM在隐私敏感场景（医疗、翻译、自动驾驶）的应用优势。然而，该综述未涉及扩散模型，仅聚焦语言模型的轻量化与落地实践。
+
+Song等人\cite{song2024lightweight} Lightweight diffusion models: a survey
+
+He等人\cite{he2025diffusion} Diffusion models in low-level vision: A survey
+
+Jiang等人\cite{jiang2024survey} A survey of multimodal controllable diffusion models
+
+Fuest等人\cite{fuest2024diffusion} Diffusion Models and Representation Learning: A Survey
+
+Cao等人\cite{cao2024survey} A survey on generative diffusion models
 
 
 \newpage
