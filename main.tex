@@ -46,6 +46,20 @@
 
 此外，我们注意到许多综述\cite{yang2023diffusion,croitoru2023diffusion,song2024lightweight,cao2024survey,he2025diffusion}也对扩散模型在其他领域的应用进行了总结，如图像超分辨率、去模糊、图像编辑、视频生成、医学图像分析、分子设计、时间序列预测等。对此，本综述计划在后续版本中进一步补充和完善相关内容，以求对该领域的发展全貌做出更深入的梳理与展望。
 
+\subsection{未来工作}
+
+\subsubsection{图生图（图像编辑）的相关技术}
+
+\subsubsection{文生图+图生图的可控编辑生成}
+
+\subsubsection{文生图与图生图多任务模型}
+
+
+\subsubsection{端侧/小型多模态理解大模型}
+
+\subsubsection{文生视频模型（大概梳理脉络即可）}
+
+
 
 \iffalse
 Yang等人\cite{yang2023diffusion}介绍了扩散模型的核心理论框架（如去噪扩散概率模型、基于分数的生成模型和随机微分方程方法）、高效采样方法以及针对离散数据、流形数据等特殊结构的扩展。随后总结了扩散模型在计算机视觉、自然语言处理、多模态（如文生图）及科学计算（如分子生成）等领域的应用，并分析了其与VAE、GAN等生成模型的关联。
@@ -521,7 +535,8 @@ CLIP（Contrastive Language-Image Pre-training）\cite{radford2021learning} 是�
 
 \section{扩散模型后续改进}
 
-扩散模型凭借坚实的理论基础与卓越的生成能力，近年来备受关注。然而，早期扩散模型在实际应用中面临诸多挑战，例如采样效率低下限制了生成速度，似然估计不准影响了生成质量与可控性，以及欧氏空间假设难以适应实际数据常呈现的复杂流形结构。为克服这些瓶颈，研究者围绕四个核心方向开展了系统性改进：（1）将扩散过程引入隐空间，有效应对结构化或复杂数据分布；（2）通过轨迹优化实现少步数高效生成；（3）设计更为快速的采样算法，显著提升采样效率；（4）发展精确的似然估计、概率密度建模方法。下面我们将系统地介绍这四个核心方向的典型方法。
+近年来，扩散模型凭借其坚实的理论基础和卓越的生成能力，已成为生成式模型领域的研究热点。然而，早期扩散模型在实际应用中仍面临三个关键挑战：（1）基于欧氏空间的假设难以准确刻画实际数据中普遍存在的复杂流形结构；（2）似然估计的准确性不足制约了生成质量与模型的可控性；（3）采样效率低下导致生成速度受限。为突破这些瓶颈，研究者们从多个方向展开了系统性改进：首先，通过将扩散过程引入隐空间，有效提升了模型对结构化或复杂数据分布的建模能力；其次，发展更精确的似然估计与概率密度建模方法，以增强生成质量与可控性；此外，设计更高效的采样算法，显著提升推理速度。与此同时，基于一致性准则的方法通过优化概率流ODE（\ref{ode:backward}）的生成过程，进一步提高了计算效率。而近期兴起的流匹配方法则另辟蹊径，通过直接学习分布转移向量场，实现了更高效的生成。下文将系统梳理这些方向的代表性方法及其技术演进。
+
 
 \subsection{隐空间上的高效扩散模型学习}
 
@@ -531,46 +546,35 @@ CLIP（Contrastive Language-Image Pre-training）\cite{radford2021learning} 是�
 
 区别于LSGM的联合训练范式，隐空间扩散模型（Latent Diffusion Model，LDM）\cite{rombach2022high}采用分阶段优化策略。其技术核心在于：首先独立训练具有感知等效特性的分层VAE，构建高度语义压缩的潜在表示空间；随后在此稳定收敛的潜在空间中训练扩散概率模型。这种解耦式训练架构不仅降低了模型优化难度，更重要的是通过建立“感知等效-语义压缩”的潜在空间，使得扩散过程能聚焦于本质特征学习，从而在图像生成任务中实现计算复杂度降低与视觉保真度提升的双重突破。
 
-\subsection{少步数生成的扩散模型范式}
-\label{sec:rf_cm_lcm}
 
-传统扩散模型由于需要多步迭代去噪，导致推理延迟较高，制约了其在实际场景中的应用。为克服这一瓶颈，近年来学者们提出了一系列约束扩散轨迹几何性质的方法，以实现少步、高效甚至一步式的数据生成。其中，修正流（Rectified Flow, RF）\cite{liu2022flow}、一致性模型（Consistency Model, CM）\cite{pmlr-v202-song23a}以及隐空间一致性模型（Latent Consistency Model, LCM）\cite{luo2023latent}代表了当前该领域的重要进展。
+\subsection{似然估计优化}
 
+扩散模型的训练目标本质上是数据对数似然的变分下界（Evidence Lower Bound, ELBO），然而该下界往往存在松弛性问题，导致模型难以达到最优似然性能。近期一些工作通过系统优化扩散过程中的噪声调度策略与反向过程的方差参数化方式，提升了变分下界的紧致性，进而改善模型的数据建模能力。本节将从噪声调度优化、广义参数化框架和反向方差优化三个方向，系统阐述该领域的关键进展。
 
-从SDE的角度，普通扩散模型由于反向过程中包含布朗运动项，所以从噪声到数据的路径是非线性的，故推理时需要较小的步长。修正流（RF）\cite{liu2022flow}是近年来扩散模型领域的重要改进方法，旨在解决传统扩散模型训练和推理效率低下的问题。RF受到ODE和最优传输（Optimal Transport, OT）理论的启发，其核心目标是构建更“直”的传输路径，这样就允许我们在生成时采用较大的步长而不发散，因而有效降低的采样迭代次数。具体地，RF将前向过程定义为连接数据分布与标准正态分布的直线路径，即：
+传统扩散模型的噪声调度通常采用启发式设计，这种固定模式可能无法适应复杂数据分布的动态去噪需求。iDDPM\cite{nichol2021improved}提出了一种基于余弦函数的噪声调度策略，该设计能在时间域两端（$t\rightarrow 0$和$t\rightarrow T$）产生更平缓的噪声变化率，实验显示它显著提升了模型的对数似然性能。具体地，该工作将(\ref{ddpm:bar_alpha})中的$\bar{\alpha}_t$定义为：
 \begin{equation*}
-    \x_t = (1-\sigma_t)\x_0 + \sigma_t\epsilon,
+    \bar{\alpha}_t=\frac{f(t)}{f(0)},\ f(t)=\cos\left(\frac{t/T+s}{1+s}\cdot\frac{\pi}{2}\right)^2,
 \end{equation*}
-其中$\x_0$表示干净的图像，$t$为时间步，$\sigma_t$是与时间步相关的系数，$\epsilon$是从$\N(\mathbf{0},\mathbf{I})$中采样的随机噪声。RF的反向过程通过利用神经网络学习\textbf{速度场}$v_\theta(\x_t,t)$来实现：
+其中$s$是控制噪声尺度的超参数，$T$表示总扩散步数。对应的前向过程方差$\beta_t$可通过$\beta_t=1-\frac{\bar{\alpha}_t}{\bar{\alpha}_{t-1}}$递推计算。此外，iDDPM还提出了一种基于对数域插值的反向过程方差学习方法：
 \begin{equation*}
-    \mathcal{L}_{\text{task}} =\E_{\epsilon\sim\N(\mathbf{0},\mathbf{I}),t}\left[\|(\epsilon-\x_0) - v_\theta(\x_t,t)\|_2^2\right].
+    \Sigma_\theta(\x_t,t)=\exp (v\log\beta_t + (1-v)\log \sigma_q^2(t)),
 \end{equation*}
-可以看出，该速度场实际上刻画的就是噪声$\epsilon$到图像$\x_0$的最优传输方向。为了提升训练稳定性，Liu等人\cite{liu2022flow}提出使用logit-normal采样策略采样$t$，它会以更高的概率采样中间步骤。在推理阶段，RF采用Flow-Euler采样器，它基于学到的速度场来计算下个样本点：
-\begin{equation*}
-    \x_{t-1} = \x_t + (\sigma_{t-1} - \sigma_t)\cdot v_\theta(\x_t,t),
-\end{equation*}
-其中$\sigma_{t-1} - \sigma_t$可以看作步长。可以看出，修正流通过显式强制路径线性化并用速度场建模替代传统的扩散过程，一方面保留了扩散模型的渐进生成特性，一方面又摆脱了之前扩散模型ODE对分数函数的依赖，实现了高效采样。在采样时通常仅需10$\sim$20步即可达到高质量生成。
+其中$v$为扩散模型根据$\x_t$产生一个与$\beta_t$相同维度的权重向量，$\sigma_q^2(t)$由(\ref{eq:reverse-posterior-main})定义。这种设计既保留了DDPM原始方差$\beta_t$的稳定性，又通过$\sigma_q^2(t)$引入数据依赖性，使模型能自适应调整不同时间步的去噪强度。
 
+除了iDDPM提出的方差学习方法外，一些模型还可以直接对方差进行显式预测。其中具有代表性的模型是DiT（Diffusion Transformer）\cite{peebles2022scalable}。DiT是一种基于Transformer架构的扩散模型，融合了扩散过程与Transformer的全局建模能力，能够高效地处理高分辨率图像的生成任务，我们在图\ref{fig:dit}中展示了DiT的结构。与传统仅预测噪声或均值的模型不同，DiT不仅能够为带噪输入预测噪声，还可以同时对扩散过程中的方差进行建模和预测。通过联合预测均值和方差，DiT进一步提升了生成图像的质量与多样性，同时增强了采样的稳定性和细节表现。
 
-一致性模型（CM）\cite{pmlr-v202-song23a}是一种能实现单步或少量步数生成的新型生成模型，其核心思想是学习一个一致性函数（consistency function），将概率流常微分方程（Probability Flow ODE，PF-ODE）轨迹上的任意点映射至该轨迹的起点（即PF-ODE的解——原始数据）。一致性函数被定义为$\f:(\x_t,t)\rightarrow \x_\epsilon$，其中$\epsilon$是一个很小的正常数，求解器为了保证数值计算稳定通常停止于$t=\epsilon$，$\x_\epsilon$表示一个与真实样本非常接近的数据点。一致性函数需要满足以下的自一致性（self-consistency）：
+在反向过程方差优化的研究方向上，Analytic-DPM\cite{bao2021analytic}从变分原理出发，通过严格的数学推导提出了最优反向方差的解析表达式：
 \begin{equation*}
-    \f(\x_t,t)=\f(\x_{t^{\prime}},t^{\prime}),\ \forall t,t^\prime\in [\epsilon,T]. 
+    \Sigma_\theta(\x_t,t)=\sigma_q^2(t) + \left(\sqrt{\frac{\bar{\beta}_t}{\alpha_t}} -\sqrt{\bar{\beta}_{t-1}-\sigma_q^2(t)} \right)^2\cdot \left(1-\bar{\beta}_t \E_{q(\x_t)}\frac{\|\nabla_{\x_t}\log q(\x_t) \|^2}{d} \right)
 \end{equation*}
-Song等人\cite{pmlr-v202-song23a}指出可以通过优化目标函数让上面的性质成立来从数据中学习一个有效的参数化的一致性模型$f_\theta$。为了让该一致性模型的边界条件$f_\theta(\x,\epsilon)=\x$成立，$f_\theta$被参数化为：
-\begin{equation*}
-    \f_\theta(\x,t)=c_{\text{skip}}(t)\x + c_{\text{out}}(t)\mathbf{F}_\theta(\x,t),
-\end{equation*}
-其中$c_{\text{skip}}(t)$和$c_{\text{out}}(t)$为可微函数，满足$c_{\text{skip}}(\epsilon)=1$且$c_{\text{out}}(\epsilon)=0$，$\mathbf{F}_\theta(\x,t)$为深度神经网络。一致性模型可通过两种方式训练：从预训练扩散模型蒸馏（称为一致性蒸馏），或从头训练。为强化自一致性属性，Song等人采用指数移动平均更新目标模型$\theta^-$，即$\theta^- \leftarrow + \mu\theta^- + (1-\mu)\theta$，并定义一致性损失函数为：
-\begin{equation*}
-    \mathcal{L}(\theta,\theta^-;\Phi)=\E_{\x,t}\left[d\left(\f_\theta(\x_{t_{n+1}},t_{n+1}),\f_{\theta^-}(\hat{\x}_{t_n}^\phi,t_n) \right)\right],
-\end{equation*}
-其中$d(\cdot,\cdot)$是一个用于度量两个样本相似度的函数，$\hat{\x}_{t_n}^\phi$是根据$\x_{t_{n+1}}$计算的$\x_{t_{n}}$的估计值：
-\begin{equation*}
-    \hat{\x}_{t_n}^\phi \leftarrow \x_{t_{n+1}} + (t_n-t_{n+1})\Phi(\x_{t_{n+1}},t_{n+1};\phi),
-\end{equation*}
-其中$\Phi$表示用于求解PF-ODE的单步ODE求解器，可以使用Euler求解器\cite{song2020score}或Heun求解器\cite{karras2022elucidating}。实验表明，CM能够实现单步或极少步数的高质量采样，极大提高了生成效率，为扩散模型的实际部署提供了有力支持。
+其中$\sigma_q^2(t)$由(\ref{eq:reverse-posterior-main})定义，$\alpha_t=1-\beta_t$（$\beta_t$由(\ref{ddpm:forward_process})定义），
+$\bar{\beta}_t=1-\bar{\alpha}_t$（$\bar{\alpha}_t$由(\ref{ddpm:bar_alpha})定义），$q(\x_t)$是前向过程生成的$\x_t$的边缘分布，$d$是数据的维度。该理论成果的核心价值在于给定预训练的分数模型后即可通过蒙特卡洛估计确定最优反向方差，并且使用该最优方差可得到更紧致的变分下界估计。
 
-隐空间一致性模型（Latent Consistency Models, LCM）\cite{luo2023latent}在一致性模型的基础上进行了关键性改进，通过将自一致性约束迁移至预训练扩散模型（如Stable Diffusion）的VAE隐空间中。相较于传统像素空间的一致性建模，隐空间维度的大幅降低不仅显著提升了计算效率，还能充分利用已有扩散模型的文本编码器（如CLIP encoder），从而天然适配文本到图像等多模态生成任务。为实现更高效的引导生成，作者提出了引导蒸馏技术：一方面通过求解概率流ODE将无分类器引导（CFG）机制融入模型训练，另一方面引入跳跃步长策略以加速训练收敛。实验结果表明，该方法在保持生成多样性和图像质量的前提下，可将采样步数压缩至1-4步，这一进展有效推动了条件扩散模型在工业级应用中的实际部署。
+Kingma等人提出的变分扩散模型（Variational Diffusion Model，VDM）\cite{kingma2021variational}通过引入广义参数化形式扩展了传统扩散模型的理论框架。首先，VDM将前向过程的边缘分布表述为$q(\x_t|\x_0)=\N(\x_t;\alpha_t\x_0,\sigma_t^2\mathbf{I})$，其中参数$\alpha_t$和$\sigma_t^2$分别独立控制信号衰减和噪声注入。这种解耦设计揭示了DDPM与NCSN的内在联系：当约束$\alpha_t=\sqrt{1-\sigma_t^2}$时，VDM退化为标准DDPM，其信噪比$\alpha_t^2/\sigma_t^2$呈现单调递减特性；当固定$\alpha_t=1$时，VDM等价于NCSN的连续时间形式。VDM进一步提出通过如下方式参数化$\sigma_t^2$，以实现可微分的噪声调度：
+\begin{equation*}
+    \sigma_t^2=\text{sigmoid}(\gamma_\eta(t)),
+\end{equation*}
+其中$\gamma_\eta(t)$是参数为$\eta$的单调神经网络，它保证了$\x_t$的信噪比随时间单调递减的特性，还为学习复杂噪声调度提供了可微分的参数空间。
 
 
 \subsection{更快速的采样器}
@@ -616,23 +620,56 @@ DDIM与DDPM的训练目标一致，都是训练模型$\epsilon_\theta(\x_t,t)$�
 
 近期一些工作通过可学习的参数来刻画数值积分中的高阶梯度信息，以实现更精准地逼近，避免低阶方法误差累计。GENIE\cite{dockhorn2022genie}是一种新颖的高阶去噪扩散求解器，其核心思想是通过引入高阶梯度信息（如二阶得分函数）来更精确地逼近生成轨迹，从而显著提升扩散模型的采样效率。该方法仅需在一阶得分网络基础上增加一个额外的小型网络头，在训练阶段利用自动微分技术计算所需的高阶梯度，并将这些高阶信息蒸馏到该网络头中；在推理阶段，该网络头可直接提供高阶梯度信息，避免了显式计算高维导数带来的计算开销。这种设计在显著提升采样精度的同时，保持了模型的计算效率。Shaul等人\cite{shaul2023bespoke}提出可以为预训练的扩散模型定制可微分的参数化ODE求解器（Bespoke Solver），它将传统数值求解器的系数扩展为模型依赖的动态参数，并通过基于多步一致性约束的全局误差损失函数对该求解器中的参数进行高效优化。实验表明求解器中的参数动态能响应不同采样阶段的ODE动态特性，为生成模型的快速采样提供了新方向。
 
+\subsection{基于一致性准则的方法}
 
+传统扩散模型由于需要多步迭代去噪，导致推理延迟较高，制约了其在实际场景中的应用。为克服这一瓶颈，近年来学者们提出了一系列约束扩散轨迹几何性质的方法，以实现少步、高效甚至一步式的数据生成。其中一致性模型（Consistency Model, CM）\cite{pmlr-v202-song23a}以及隐空间一致性模型（Latent Consistency Model, LCM）\cite{luo2023latent}代表了当前该领域的重要进展。
 
-\subsection{似然估计优化}
-
-扩散模型的训练目标本质上是数据对数似然的变分下界（Evidence Lower Bound, ELBO），然而该下界往往存在松弛性问题，导致模型难以达到最优似然性能。近期一些工作通过系统优化扩散过程中的噪声调度策略与反向过程的方差参数化方式，提升了变分下界的紧致性，进而改善模型的数据建模能力。本节将从噪声调度优化、广义参数化框架和反向方差优化三个方向，系统阐述该领域的关键进展。
-
-传统扩散模型的噪声调度通常采用启发式设计，这种固定模式可能无法适应复杂数据分布的动态去噪需求。iDDPM\cite{nichol2021improved}提出了一种基于余弦函数的噪声调度策略，该设计能在时间域两端（$t\rightarrow 0$和$t\rightarrow T$）产生更平缓的噪声变化率，实验显示它显著提升了模型的对数似然性能。具体地，该工作将(\ref{ddpm:bar_alpha})中的$\bar{\alpha}_t$定义为：
+一致性模型（CM）\cite{pmlr-v202-song23a}是一种能实现单步或少量步数生成的新型生成模型，其核心思想是学习一个一致性函数（consistency function），将概率流常微分方程（Probability Flow ODE，PF-ODE）轨迹上的任意点映射至该轨迹的起点（即PF-ODE的解——原始数据）。一致性函数被定义为$\f:(\x_t,t)\rightarrow \x_\epsilon$，其中$\epsilon$是一个很小的正常数，求解器为了保证数值计算稳定通常停止于$t=\epsilon$，$\x_\epsilon$表示一个与真实样本非常接近的数据点。一致性函数需要满足以下的自一致性（self-consistency）：
 \begin{equation*}
-    \bar{\alpha}_t=\frac{f(t)}{f(0)},\ f(t)=\cos\left(\frac{t/T+s}{1+s}\cdot\frac{\pi}{2}\right)^2,
+    \f(\x_t,t)=\f(\x_{t^{\prime}},t^{\prime}),\ \forall t,t^\prime\in [\epsilon,T]. 
 \end{equation*}
-其中$s$是控制噪声尺度的超参数，$T$表示总扩散步数。对应的前向过程方差$\beta_t$可通过$\beta_t=1-\frac{\bar{\alpha}_t}{\bar{\alpha}_{t-1}}$递推计算。此外，iDDPM还提出了一种基于对数域插值的反向过程方差学习方法：
+Song等人\cite{pmlr-v202-song23a}指出可以通过优化目标函数让上面的性质成立来从数据中学习一个有效的参数化的一致性模型$f_\theta$。为了让该一致性模型的边界条件$f_\theta(\x,\epsilon)=\x$成立，$f_\theta$被参数化为：
 \begin{equation*}
-    \Sigma_\theta(\x_t,t)=\exp (v\log\beta_t + (1-v)\log \sigma_q^2(t)),
+    \f_\theta(\x,t)=c_{\text{skip}}(t)\x + c_{\text{out}}(t)\mathbf{F}_\theta(\x,t),
 \end{equation*}
-其中$v$为扩散模型根据$\x_t$产生一个与$\beta_t$相同维度的权重向量，$\sigma_q^2(t)$由(\ref{eq:reverse-posterior-main})定义。这种设计既保留了DDPM原始方差$\beta_t$的稳定性，又通过$\sigma_q^2(t)$引入数据依赖性，使模型能自适应调整不同时间步的去噪强度。
+其中$c_{\text{skip}}(t)$和$c_{\text{out}}(t)$为可微函数，满足$c_{\text{skip}}(\epsilon)=1$且$c_{\text{out}}(\epsilon)=0$，$\mathbf{F}_\theta(\x,t)$为深度神经网络。一致性模型可通过两种方式训练：从预训练扩散模型蒸馏（称为一致性蒸馏），或从头训练。为强化自一致性属性，Song等人采用指数移动平均更新目标模型$\theta^-$，即$\theta^- \leftarrow + \mu\theta^- + (1-\mu)\theta$，并定义一致性损失函数为：
+\begin{equation*}
+    \mathcal{L}(\theta,\theta^-;\Phi)=\E_{\x,t}\left[d\left(\f_\theta(\x_{t_{n+1}},t_{n+1}),\f_{\theta^-}(\hat{\x}_{t_n}^\phi,t_n) \right)\right],
+\end{equation*}
+其中$d(\cdot,\cdot)$是一个用于度量两个样本相似度的函数，$\hat{\x}_{t_n}^\phi$是根据$\x_{t_{n+1}}$计算的$\x_{t_{n}}$的估计值：
+\begin{equation*}
+    \hat{\x}_{t_n}^\phi \leftarrow \x_{t_{n+1}} + (t_n-t_{n+1})\Phi(\x_{t_{n+1}},t_{n+1};\phi),
+\end{equation*}
+其中$\Phi$表示用于求解PF-ODE的单步ODE求解器，可以使用Euler求解器\cite{song2020score}或Heun求解器\cite{karras2022elucidating}。实验表明，CM能够实现单步或极少步数的高质量采样，极大提高了生成效率，为扩散模型的实际部署提供了有力支持。
 
-除了iDDPM提出的方差学习方法外，一些模型还可以直接对方差进行显式预测。其中具有代表性的模型是DiT（Diffusion Transformer）\cite{peebles2022scalable}。DiT是一种基于Transformer架构的扩散模型，融合了扩散过程与Transformer的全局建模能力，能够高效地处理高分辨率图像的生成任务，我们在图\ref{fig:dit}中展示了DiT的结构。与传统仅预测噪声或均值的模型不同，DiT不仅能够为带噪输入预测噪声，还可以同时对扩散过程中的方差进行建模和预测。通过联合预测均值和方差，DiT进一步提升了生成图像的质量与多样性，同时增强了采样的稳定性和细节表现。
+隐空间一致性模型（Latent Consistency Models, LCM）\cite{luo2023latent}在一致性模型的基础上进行了关键性改进，通过将自一致性约束迁移至预训练扩散模型（如Stable Diffusion）的VAE隐空间中。相较于传统像素空间的一致性建模，隐空间维度的大幅降低不仅显著提升了计算效率，还能充分利用已有扩散模型的文本编码器（如CLIP encoder），从而天然适配文本到图像等多模态生成任务。为实现更高效的引导生成，作者提出了引导蒸馏技术：一方面通过求解概率流ODE将无分类器引导（CFG）机制融入模型训练，另一方面引入跳跃步长策略以加速训练收敛。实验结果表明，该方法在保持生成多样性和图像质量的前提下，可将采样步数压缩至1-4步，这一进展有效推动了条件扩散模型在工业级应用中的实际部署。
+
+
+\subsection{流匹配方法}
+
+生成模型的目标是将一个先验分布转化为数据分布。流匹配（Flow Matching）方法\cite{albergo2022building,lipman2022flow,liu2022flow}为构建将一个分布传输到另一个分布的流路径提供了一种直观且概念上简单的框架，其关注点在于用于引导模型训练的速度场。自提出以来，流匹配方法已在现代生成建模中得到广泛应用\cite{esser2024scaling,ma2024sit,polyak2024movie}。具体地，给定数据$x\sim p_{\text{data}}(x)$和先验噪声$\epsilon\sim p_{\text{prior}}(x)$，一条流路径可按如下方式进行构造：
+\begin{equation*}
+    z_t = a_t x + b_t\epsilon,
+\end{equation*}
+其中$t$表示时间，$a_t$和$b_t$是预定义的调度器，一般可设置$a_t=1-t,b_t=t$。由此可以进一步定义速度（velocity）$v_t$如下：
+\begin{equation*}
+    v_t=\frac{d}{dt}z_t = \frac{d}{dt}a_t x + \frac{d}{dt}b_t\epsilon.
+\end{equation*}
+
+上面的速度由于依赖于$x$和$\epsilon$，所以也被称为条件速度（conditional velocity）\cite{lipman2022flow}，记为$v_t=v_t(z_t|x)$。流匹配方法会建模条件速度对所有可能性的期望，并得到如下的边际速度（marginal velocity）：
+\begin{equation}
+    v(z_t,t) \overset{\Delta}{=} \E_{p_t(v_t|z_t)}[v_t].
+\label{eq:mvel}
+\end{equation}
+
+流匹配方法的学习目标是优化一个参数为$\theta$的神经网络$v_\theta$来学习边际速度场，即$\mathcal{L}_{\text{FM}}(\theta)=\E_{t,p_t(z_t)}\|v_\theta(z_t,t)- v(z_t,t)\|^2$。虽然该目标函数由于涉及(\ref{eq:mvel})中的期望而难以计算，但Lipman等人\cite{lipman2022flow}指出最小化下面的条件流匹配损失（conditional Flow Matching loss）$\mathcal{L}_{\text{CFM}}(\theta)=\E_{t,p_t(z_t)}\|v_\theta(z_t,t)- v(z_t|x)\|^2$等价于最小化$\mathcal{L}_{\text{FM}}$。
+
+当我们获得边际速度场$v(z_t,t)$后，便可以通过求解以下的ODE来生成样本：
+\begin{equation*}
+    \frac{d}{dt}z_t=v(z_t,t),
+\end{equation*}
+其中起点可以设置为$z_1=\epsilon\sim p_{\text{prior}}$，上述ODE的解可以写成$z_r=z_t-\int_r^t v(z_\tau,\tau)d\tau$，其中$r$是另一个时间步。在实际中，该积分可以通过在离散时间步上的数值积分来近似。
+
 
 \begin{table*}[t]
 \caption{扩散模型后续改进总结}
@@ -644,42 +681,49 @@ DDIM与DDPM的训练目标一致，都是训练模型$\epsilon_\theta(\x_t,t)$�
 \midrule
 \multirow{2}{*}{隐空间扩散模型} & 隐空间分数生成模型~\cite{vahdat2021score} & 联合训练VAE编码器与扩散模型 \\
                         & 隐空间扩散模型~\cite{rombach2022high} & 先训练VAE编码器再构建扩散模型 \\
-\midrule                  
-\multirow{3}{*}{少步数扩散模型} & 修正流~\cite{liu2022flow} & 线性化数据与噪声间的传输路径\\
-                       & 一致性模型~\cite{pmlr-v202-song23a} & 将扩散轨迹上任意点直接映射到数据点 \\
-                       & 隐空间一致性模型~\cite{luo2023latent} & 将一致性模型迁移到低维隐空间中 \\
-\midrule
-\multirow{3}{*}{高效采样算法} & 基于反向SDE~\cite{song2019generative,JolicoeurMartineau2021AdversarialSM,song2020score,jolicoeur2021gotta,dockhorn2021score} & 离散反向SDE实现噪声到数据的生成 \\
-                       & 基于概率流ODE~\cite{song2020denoising,zhang2022gddim,liu2021pseudo} & 求解确定性ODE构建高效生成路径 \\
-                       & 基于高阶ODE~\cite{karras2022elucidating,zhang2022fast,lu2022dpm,dockhorn2022genie,shaul2023bespoke} & 建模高阶信息精确逼近生成轨迹 \\
 \midrule
 \multirow{3}{*}{似然估计优化} & 噪声调度优化~\cite{nichol2021improved} & 设计自适应噪声调度以实现更平滑去噪 \\
                        & 反向方差优化~\cite{bao2021analytic,nichol2021improved,peebles2022scalable} & 用解析式或模型预测精准建模反向方差 \\
                        & 广义参数化框架~\cite{kingma2021variational} & 独立地参数化信号衰减和噪声注入 \\
+\midrule
+\multirow{3}{*}{高效采样算法} & 基于反向SDE~\cite{song2019generative,JolicoeurMartineau2021AdversarialSM,song2020score,jolicoeur2021gotta,dockhorn2021score} & 离散反向SDE实现噪声到数据的生成 \\
+                       & 基于概率流ODE~\cite{song2020denoising,zhang2022gddim,liu2021pseudo} & 求解确定性ODE构建高效生成路径 \\
+                       & 基于高阶ODE~\cite{karras2022elucidating,zhang2022fast,lu2022dpm,dockhorn2022genie,shaul2023bespoke} & 建模高阶信息精确逼近生成轨迹 \\
+\midrule                  
+\multirow{2}{*}{一致性准则方法} & 一致性模型~\cite{pmlr-v202-song23a} & 将扩散轨迹上任意点直接映射到数据点 \\
+                       & 隐空间一致性模型~\cite{luo2023latent} & 将一致性模型迁移到低维隐空间中 \\
+\midrule
+\multirow{2}{*}{流匹配方法} & 修正流~\cite{liu2022flow} & 线性化数据与噪声间的传输路径\\
+& 平均流~\cite{geng2025mean} & 用一段时间内平均速度刻画场的变化 \\
 \bottomrule
 \end{tabular}
 \end{center}
 \label{tab:advanced_diffusion}
 \end{table*}
 
-在反向过程方差优化的研究方向上，Analytic-DPM\cite{bao2021analytic}从变分原理出发，通过严格的数学推导提出了最优反向方差的解析表达式：
-\begin{equation*}
-    \Sigma_\theta(\x_t,t)=\sigma_q^2(t) + \left(\sqrt{\frac{\bar{\beta}_t}{\alpha_t}} -\sqrt{\bar{\beta}_{t-1}-\sigma_q^2(t)} \right)^2\cdot \left(1-\bar{\beta}_t \E_{q(\x_t)}\frac{\|\nabla_{\x_t}\log q(\x_t) \|^2}{d} \right)
-\end{equation*}
-其中$\sigma_q^2(t)$由(\ref{eq:reverse-posterior-main})定义，$\alpha_t=1-\beta_t$（$\beta_t$由(\ref{ddpm:forward_process})定义），
-$\bar{\beta}_t=1-\bar{\alpha}_t$（$\bar{\alpha}_t$由(\ref{ddpm:bar_alpha})定义），$q(\x_t)$是前向过程生成的$\x_t$的边缘分布，$d$是数据的维度。该理论成果的核心价值在于给定预训练的分数模型后即可通过蒙特卡洛估计确定最优反向方差，并且使用该最优方差可得到更紧致的变分下界估计。
 
-Kingma等人提出的变分扩散模型（Variational Diffusion Model，VDM）\cite{kingma2021variational}通过引入广义参数化形式扩展了传统扩散模型的理论框架。首先，VDM将前向过程的边缘分布表述为$q(\x_t|\x_0)=\N(\x_t;\alpha_t\x_0,\sigma_t^2\mathbf{I})$，其中参数$\alpha_t$和$\sigma_t^2$分别独立控制信号衰减和噪声注入。这种解耦设计揭示了DDPM与NCSN的内在联系：当约束$\alpha_t=\sqrt{1-\sigma_t^2}$时，VDM退化为标准DDPM，其信噪比$\alpha_t^2/\sigma_t^2$呈现单调递减特性；当固定$\alpha_t=1$时，VDM等价于NCSN的连续时间形式。VDM进一步提出通过如下方式参数化$\sigma_t^2$，以实现可微分的噪声调度：
+修正流（RF）\cite{liu2022flow}是近年来流匹配方法的重要改进，旨在进一步提升训练和推理效率。RF受到ODE和最优传输（Optimal Transport, OT）理论的启发，其核心目标是构建更“直”的传输路径，这样就允许我们在生成时采用较大的步长而不发散，因而有效降低的采样迭代次数。具体地，RF将前向过程定义为连接数据分布与标准正态分布的直线路径，即：
 \begin{equation*}
-    \sigma_t^2=\text{sigmoid}(\gamma_\eta(t)),
+    \x_t = (1-\sigma_t)\x_0 + \sigma_t\epsilon,
 \end{equation*}
-其中$\gamma_\eta(t)$是参数为$\eta$的单调神经网络，它保证了$\x_t$的信噪比随时间单调递减的特性，还为学习复杂噪声调度提供了可微分的参数空间。
+其中$\x_0$表示干净的图像，$t$为时间步，$\sigma_t$是与时间步相关的系数，$\epsilon$是从$\N(\mathbf{0},\mathbf{I})$中采样的随机噪声。RF的反向过程通过利用神经网络学习\textbf{速度场}$v_\theta(\x_t,t)$来实现：
+\begin{equation*}
+    \mathcal{L}_{\text{task}} =\E_{\epsilon\sim\N(\mathbf{0},\mathbf{I}),t}\left[\|(\epsilon-\x_0) - v_\theta(\x_t,t)\|_2^2\right].
+\end{equation*}
+可以看出，该速度场实际上刻画的就是噪声$\epsilon$到图像$\x_0$的最优传输方向。为了提升训练稳定性，Liu等人\cite{liu2022flow}提出使用logit-normal采样策略采样$t$，它会以更高的概率采样中间步骤。在推理阶段，RF采用Flow-Euler采样器，它基于学到的速度场来计算下个样本点：
+\begin{equation*}
+    \x_{t-1} = \x_t + (\sigma_{t-1} - \sigma_t)\cdot v_\theta(\x_t,t),
+\end{equation*}
+其中$\sigma_{t-1} - \sigma_t$可以看作步长。可以看出，修正流通过显式强制路径线性化并用速度场建模替代传统的扩散过程，一方面保留了扩散模型的渐进生成特性，一方面又摆脱了之前扩散模型ODE对分数函数的依赖，实现了高效采样。在采样时通常仅需10$\sim$20步即可达到高质量生成。
 
+近期，针对提升流匹配方法的效率与质量，学者们提出了多种创新。流映射匹配（Flow Map Matching）\cite{boffi2024flow}通过直接建模任意两个时间步之间的流映射，绕过了传统生成过程所需的数值积分。流映射被定义为流在两个时间步之间的积分（可理解为整体位移），研究者据此设计了多种匹配损失以促进高效学习。在此基础上，快捷模型（Shortcut Models）\cite{frans2024one}于流匹配框架中引入了自一致性（self-consistency）损失，有效刻画了不同步长下流映射之间的关系，使得模型能够实现任意步长、既高效又一致的噪声到数据的映射，从而支持一步或多步高质量生成。归纳矩匹配（Inductive Moment Matching）\cite{zhou2025inductive}则进一步扩展，自一致性建模被推广到多个不同时间步，专为随机插值器建模其时序一致性关系。
+
+有别于以往流匹配方法在路径上的逐点瞬时速度建模，平均流（Mean Flow）\cite{geng2025mean}方法提出以一段时间内的平均速度来刻画场的整体变换。该工作不仅推导出了平均速度与瞬时速度之间的明确关系，还将其用于神经网络的训练指导。平均流的显著优势在于，一旦平均速度能够被准确建模，便可通过一次前向推理有效近似整个流动路径，极大地提高了生成效率。这些方法为扩散模型的高效、可控生成开辟了新的方向。
 
 
 \subsection{小结}
 
-本节中，我们综述了近年来高效图像生成领域中扩散模型的研究进展。首先，我们介绍了基于隐空间的扩散模型方法，它们显著提升了生成效果和计算效率。随后，我们梳理了旨在减少采样步数的新型扩散模型范式，包括修正流、一致性模型以及隐空间一致性模型。此外，基于随机微分方程（SDE/ODE）求解器与高阶梯度信息的快速采样器也成为提升采样效率的重要方向。最后，我们还分析了似然估计优化技术，包括噪声调度、广义参数化和方差优化。这四方面的创新性突破不仅大幅提升了扩散模型的生成质量与效率，还催生了以Stable Diffusion\cite{rombach2022high}为代表的多模态生成系统，极大推动了扩散模型从理论探索走向实际应用的进程。我们在表\ref{tab:advanced_diffusion}中总结这这四个核心方向的典型方法与其核心思想。
+在本节中，我们综述了扩散模型的后续改进方向及其关键技术进展。首先，隐空间扩散模型（LDM）通过分离语义编码与扩散过程，显著提升了计算效率；其次，iDDPM和Analytic-DPM改进了噪声调度与反向方差优化，增强了似然估计的准确性；随后，DDIM、DPM-solver和一致性模型（CM）分别从非马尔可夫链、ODE求解和自约束学习等角度优化了采样效率；最后，流匹配及其衍生方法（如修正流、平均流）通过直接学习概率流进一步提升了生成速度。这些方法共同推动了扩散模型在生成质量、可控性和效率上的突破，为实际应用奠定了基础。我们在表\ref{tab:advanced_diffusion}中总结这这四个核心方向的典型方法与其核心思想。
 
 \newpage
 
@@ -879,7 +923,7 @@ Liu等人\cite{liu2024linfusion}针对扩散模型中自注意力层的二次计
 
 SnapFusion\cite{li2023snapfusion}提出了一种高效的扩散模型优化框架，其核心包含两个关键创新：首先，该方法采用$\v$预测（$\v$-prediction）模式对UNet进行微调，通过建模噪声$\epsilon$与无噪声隐变量$\x$的线性组合$\v=\alpha_t\epsilon-\sigma_t\x$，显著提升了梯度传播的平滑性和多步去噪过程的稳定性；其次，创新性地提出了CFG感知的步数蒸馏策略，该策略通过动态调节分类器引导系数，在保持生成质量的同时实现生成多样性的灵活控制。基于渐进式蒸馏的思想，该方法最终将50步的原始模型高效压缩为仅需8步推理的轻量UNet模型，在保证生成质量的前提下实现了显著的加速效果。
 
-\textbf{约束扩散轨迹的步数蒸馏}：在\ref{sec:rf_cm_lcm}小节中，我们系统性地介绍了三种基于轨迹优化的新型扩散模型范式：修正流（Rectified Flow, RF）\cite{liu2022flow}、一致性模型（Consistency Model, CM）\cite{pmlr-v202-song23a}和隐空间一致性模型（Latent Consistency Model, LCM）\cite{luo2023latent}。这些方法的共同特征是通过对扩散轨迹的几何性质进行约束或修正，显著简化了从噪声空间到数据空间的映射路径，从而实现了少步甚至单步的高效生成。值得注意的是，这类方法不仅可以训练生成模型，也可作为通用蒸馏框架，用于赋予预训练扩散模型高效推理能力。
+\textbf{约束扩散轨迹的步数蒸馏}：我们在前文中系统性地介绍了三种基于轨迹优化的新型扩散模型范式：修正流（Rectified Flow, RF）\cite{liu2022flow}、一致性模型（Consistency Model, CM）\cite{pmlr-v202-song23a}和隐空间一致性模型（Latent Consistency Model, LCM）\cite{luo2023latent}。这些方法的共同特征是通过对扩散轨迹的几何性质进行约束或修正，显著简化了从噪声空间到数据空间的映射路径，从而实现了少步甚至单步的高效生成。值得注意的是，这类方法不仅可以训练生成模型，也可作为通用蒸馏框架，用于赋予预训练扩散模型高效推理能力。
 
 EdgeFusion\cite{castells2024edgefusion}在BK-SDM轻量化架构的基础上，通过引入合成的高质量图文对齐数据集显著提升了模型的生成性能。该方法进一步结合隐空间一致性模型（LCM）的步骤蒸馏技术，实现了仅需少量推理步骤即可生成高质量图像的效果。
 
