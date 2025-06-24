@@ -1032,7 +1032,7 @@ Imagen video: High definition video generation with diffusion models
 \end{align}
 上面最后一个等式来自于KL散度的定义。此外，由于$p_{\theta}(\x_T)$的计算不需要扩散模型参与，实际上没有可学习参数，所以可以视为一个常数const。最终，我们可以得到如下简化的变分下界：
 \begin{equation}
-\log p_{\theta}(\x_0) \geq \E_q[\log p_{\theta}(\x_0|\x_1)]  -\Sigma_{t=1}^{T-1}\E_q[\text{KL}(q(\x_t|\x_{t-1}) \| p_{\theta}(\x_{t}|\x_{t+1}))] + \text{const}
+\log p_{\theta}(\x_0) \geq \E_q[\log p_{\theta}(\x_0|\x_1)]  -\Sigma_{t=1}^{T-1}\E_q[\text{KL}(q(\x_t|\x_{t-1}) \| p_{\theta}(\x_{t}|\x_{t+1}))] + \text{const}.
 \label{ddpm:elbo_old}
 \end{equation}
 
@@ -1120,7 +1120,7 @@ Imagen video: High definition video generation with diffusion models
 \end{align}
 又因为
 \begin{equation*}
-    p(y|\x_{t},\x_{t+1})=p(\x_{t+1}|\x_t,y)\frac{p(y|\x_t)}{p(\x_{t+1}|\x_t)} = p(\x_{t+1}|\x_t)\frac{p(y|\x_t)}{p(\x_{t+1}|\x_t)} = p(y|\x_t),
+p(y|\x_{t},\x_{t+1})=p(\x_{t+1}|\x_t,y)\frac{p(y|\x_t)}{p(\x_{t+1}|\x_t)} = p(\x_{t+1}|\x_t)\frac{p(y|\x_t)}{p(\x_{t+1}|\x_t)} = p(y|\x_t),
 \end{equation*}
 即由$\x_t$预测外部信息$y$实际上不依赖于$\x_{t+1}$。将上式代入(\ref{conditional:1})中，可得
 \begin{equation*}
