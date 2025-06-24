@@ -290,7 +290,7 @@ $q(\x_{t-1}|\x_t,\x_0)$经过推导（详见附录\ref{app:ddpm_forward_posterio
 
 尽管目标函数(\ref{sgm:dsm_obj})形式简洁且易于优化，但Song等人\cite{song2019generative}指出，由于真实世界数据常呈现低维流形分布，这会导致两个关键问题：其一，分数函数在一些区域可能无定义；其二，低密度区域的样本稀疏使得分数函数估计不准确。为解决这些问题，\cite{song2019generative}提出了噪声条件分数网络（Noise Conditional Score Network，NCSN）方法，其核心思想是通过多尺度高斯噪声扰动数据。具体而言，设$\sigma_1 > \sigma_2 > \cdots > \sigma_i > \cdots > \sigma_L > 0$是递减的$L$个不同的噪声尺度，通过以下方式构造带噪样本：
 \begin{equation}
-    q(\x^\prime|\x_0)=\N(\x^\prime|\x_0,\sigma_i^2\mathbf{I}),
+q(\x^\prime|\x_0)=\N(\x^\prime|\x_0,\sigma_i^2\mathbf{I}),
 \label{sgm:ncsn_forward}
 \end{equation}
 即$\x^\prime=\x_0+\sigma_i\epsilon$。此时的目标变成：
